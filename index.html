@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>救護所 ベッド・椅子コントロール</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1a1a1a;font-size:14px;background:#f5f5f5}
+.hdr{background:#fff;border-bottom:1px solid #e0e0e0;padding:10px 14px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:10}
+.hdr-title{font-size:15px;font-weight:600;flex:1}
+.dot{width:8px;height:8px;border-radius:50%;background:#9e9e9e;flex-shrink:0;transition:background .3s}
+.dot.online{background:#22c55e;animation:blink 2s infinite}
+.dot.syncing{background:#f59e0b;animation:blink .5s infinite}
+.dot.offline{background:#ef4444}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.sync-label{font-size:11px;color:#888}
+.clk{font-size:11px;color:#888;margin-left:4px}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e0e0e0}
+.tab{padding:9px 20px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#666}
+.tab.on{color:#1a1a1a;border-bottom-color:#3b82f6;font-weight:500}
+.tab:hover:not(.on){color:#1a1a1a}
+.split{display:flex;gap:0;min-height:calc(100vh - 90px)}
+.col{flex:1;min-width:0;padding:12px;background:#f5f5f5}
+.col-l{border-right:1px solid #e0e0e0;background:#f0f4ff}
+.col-r{background:#f5f5f5}
+.col-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.col-icon{font-size:15px}
+.col-title{font-size:13px;font-weight:600}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px}
+.stats{display:flex;gap:4px;flex-wrap:wrap}
+.st{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+.st-e{background:#dbeafe;color:#1e40af}
+.st-u{background:#fef9c3;color:#92400e}
+.st-o{background:#fee2e2;color:#991b1b}
+.st-w{background:#f3ede8;color:#6b3a2a}
+.ctrl{display:flex;align-items:center;gap:5px;font-size:11px;color:#666;margin-bottom:7px}
+.cbtn{width:22px;height:22px;border-radius:4px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:#333;line-height:1}
+.cbtn:hover{background:#f0f0f0}
+.cval{font-weight:500;min-width:18px;text-align:center}
+.addbtn{font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #ccc;background:#fff;color:#333;cursor:pointer}
+.addbtn:hover{background:#f0f0f0}
+.subgroup-label{font-size:11px;font-weight:600;color:#666;margin:10px 0 5px;padding-left:2px}
+.subgroup-label:first-child{margin-top:0}
+.bed-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.chair-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.item{border-radius:8px;padding:8px;cursor:pointer;transition:transform .1s,box-shadow .1s;border:1.5px solid transparent;background:#fff}
+.item:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.item.empty{background:#eff6ff;border-color:#93c5fd}
+.item.used{background:#fefce8;border-color:#facc15}
+.item.overtime{background:#fee2e2;border-color:#f87171}
+.item.waiting{background:#f5ede6;border-color:#c4a18a}
+.chair-item{border-radius:7px;padding:6px 5px;cursor:pointer;transition:transform .1s;border:1.5px solid transparent;text-align:center}
+.chair-item:hover{transform:translateY(-1px)}
+.chair-item.empty{background:#eff6ff;border-color:#93c5fd}
+.chair-item.used{background:#fefce8;border-color:#facc15}
+.chair-item.overtime{background:#fee2e2;border-color:#f87171}
+.chair-item.waiting{background:#f5ede6;border-color:#c4a18a}
+.ibadge{font-size:8px;padding:1px 5px;border-radius:9px;font-weight:500;display:inline-block;margin-bottom:3px}
+.bb-e{background:#bfdbfe;color:#1e40af}
+.bb-u{background:#fde68a;color:#92400e}
+.bb-o{background:#fecaca;color:#991b1b}
+.bb-w{background:#e8d5c4;color:#6b3a2a}
+.id-row{display:flex;gap:3px;align-items:center;margin-bottom:3px;flex-wrap:wrap}
+.id-chip{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:500}
+.id-item{background:#f0f0f0;border:1px solid #ccc;color:#555}
+.id-pat{background:#f0fdf4;border:1px solid #86efac;color:#166534}
+.irow{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.iname{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
+.isym{font-size:10px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;min-height:13px}
+.itime{font-size:9px;color:#888;display:flex;justify-content:space-between;align-items:center;gap:3px}
+.elapsed{font-weight:500;white-space:nowrap}
+.ew{color:#d97706}
+.ed{color:#dc2626}
+.c-id{font-size:9px;font-weight:500;color:#555;margin-bottom:2px}
+.c-name{font-size:10px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-pid{font-size:8px;color:#166534;margin-top:1px}
+.c-time{font-size:8px;color:#888;margin-top:2px}
+.c-elapsed{font-size:8px;font-weight:500;margin-top:1px}
+
+/* Modal */
+.ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
+.ovl.show{display:flex}
+.mdl{background:#fff;border-radius:14px;border:1px solid #e0e0e0;width:340px;max-width:100%;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.mh{padding:14px 16px;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center}
+.mht{font-size:15px;font-weight:600}
+.xbtn{background:none;border:none;cursor:pointer;color:#888;font-size:18px;line-height:1;padding:2px}
+.mb{padding:14px 16px;display:flex;flex-direction:column;gap:11px}
+.mf{padding:12px 16px;border-top:1px solid #e0e0e0;display:flex;gap:8px;justify-content:flex-end}
+.lbl{font-size:11px;color:#666;margin-bottom:4px;font-weight:500}
+.sopts{display:grid;grid-template-columns:repeat(2,1fr);gap:5px}
+.sopt{padding:8px 4px;border-radius:6px;border:1.5px solid transparent;cursor:pointer;font-size:11px;text-align:center;font-weight:500}
+.sopt.se{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+.sopt.su{background:#fefce8;border-color:#fde68a;color:#92400e}
+.sopt.so{background:#fee2e2;border-color:#fecaca;color:#991b1b}
+.sopt.sw{background:#f5ede6;border-color:#e8d5c4;color:#6b3a2a}
+.sopt.sel{box-shadow:0 0 0 2px #3b82f6}
+.finput{width:100%;font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;background:#fafafa;color:#1a1a1a}
+.finput:focus{outline:none;border-color:#3b82f6;background:#fff}
+.fidro{background:#f0f0f0;color:#888;cursor:default}
+.id-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.symq{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.sqb{padding:4px 12px;border-radius:20px;border:1px solid #ccc;background:#fafafa;font-size:11px;cursor:pointer;color:#555}
+.sqb:hover{background:#eff6ff;color:#1e40af;border-color:#93c5fd}
+.savebtn{background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:9px 22px;font-size:13px;cursor:pointer;font-weight:500}
+.savebtn:hover{background:#2563eb}
+.canbtn{background:none;border:1px solid #ccc;border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;color:#555}
+.canbtn:hover{background:#f0f0f0}
+.time-hint{font-size:10px;color:#888;margin-top:3px}
+.id-desc{font-size:10px;color:#888;margin-top:2px}
+
+/* オフラインバナー */
+.offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
+.offline-banner.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="offline-banner" id="offline-banner">⚠️ オフライン中 — 操作内容はローカルに保存され、回線復帰時に自動同期されます</div>
+
+<div class="hdr">
+  <div class="dot" id="sync-dot"></div>
+  <span class="hdr-title">救護所 ベッド・椅子コントロール</span>
+  <span class="sync-label" id="sync-label">接続中...</span>
+  <span class="clk" id="clk"></span>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="split">
+  <div class="col col-l">
+    <div class="col-head"><span class="col-icon">🛏️</span><span class="col-title">ベッド</span></div>
+    <div id="bed-area"></div>
+  </div>
+  <div class="col col-r">
+    <div class="col-head"><span class="col-icon">🪑</span><span class="col-title">椅子</span></div>
+    <div id="chair-area"></div>
+  </div>
+</div>
+
+<!-- 編集モーダル -->
+<div class="ovl" id="ovl">
+  <div class="mdl">
+    <div class="mh">
+      <span class="mht" id="mtitle">編集</span>
+      <button class="xbtn" onclick="closeM()">✕</button>
+    </div>
+    <div class="mb">
+      <div>
+        <div class="lbl">状態</div>
+        <div class="sopts">
+          <div class="sopt se" data-s="empty" onclick="selS('empty')">空き</div>
+          <div class="sopt su" data-s="used" onclick="selS('used')">使用中</div>
+          <div class="sopt so" data-s="overtime" onclick="selS('overtime')">時間超過</div>
+          <div class="sopt sw" data-s="waiting" onclick="selS('waiting')">送迎待ち</div>
+        </div>
+      </div>
+      <div class="id-fields">
+        <div>
+          <div class="lbl" id="id-lbl">ID（部屋内固定）</div>
+          <input class="finput fidro" id="fid" readonly>
+          <div class="id-desc">部屋ごとの物理的な番号</div>
+        </div>
+        <div>
+          <div class="lbl">患者ID（全体通し）</div>
+          <input class="finput fidro" id="fpid" readonly style="background:#f0fdf4;border-color:#86efac;color:#166534">
+          <div class="id-desc">フェス全体での通し番号</div>
+        </div>
+      </div>
+      <div>
+        <div class="lbl">患者名</div>
+        <input class="finput" id="fname" placeholder="例：山田 太郎">
+      </div>
+      <div>
+        <div class="lbl">症状</div>
+        <div class="symq">
+          <button class="sqb" onclick="setSym('熱中症')">熱中症</button>
+          <button class="sqb" onclick="setSym('気分不良')">気分不良</button>
+        </div>
+        <input class="finput" id="fsym" placeholder="その他、自由入力">
+      </div>
+      <div id="time-field">
+        <div class="lbl">入室時刻</div>
+        <input class="finput" type="time" id="ftime">
+        <div class="time-hint">自動入力されます。手動で変更も可能です。</div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="canbtn" onclick="closeM()">キャンセル</button>
+      <button class="savebtn" onclick="saveB()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, get, runTransaction, connectDatabaseEmulator }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA2CJS6NF3rr46138iP5E8QZNRxz9kUzYk",
+  authDomain: "monster-bash-2026-medical.firebaseapp.com",
+  databaseURL: "https://monster-bash-2026-medical-default-rtdb.firebaseio.com",
+  projectId: "monster-bash-2026-medical",
+  storageBucket: "monster-bash-2026-medical.firebasestorage.app",
+  messagingSenderId: "728030132786",
+  appId: "1:728030132786:web:c6bd82bf1ccdb1f7761a2b",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ─── 定数 ───────────────────────────────────────────
+const ROOMS = ['本部', '空海横', '茶道'];
+const SL = {empty:'空き', used:'使用中', overtime:'時間超過', waiting:'送迎待ち'};
+const BC = {empty:'empty', used:'used', overtime:'overtime', waiting:'waiting'};
+const BB = {empty:'bb-e', used:'bb-u', overtime:'bb-o', waiting:'bb-w'};
+const OT = 30 * 60 * 1000;
+const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
+const KIND_LABEL  = {bed:'ベッド', chairIn:'室内椅子', chairOut:'室外椅子'};
+const KIND_KEYS   = ['beds','chairsIn','chairsOut'];
+const KIND_MAP    = {bed:'beds', chairIn:'chairsIn', chairOut:'chairsOut'};
+
+// ─── ローカル状態 ────────────────────────────────────
+// rooms[i] = { beds:[...], chairsIn:[...], chairsOut:[...] }
+// item = { localId, patientId, status, name, sym, enteredAt }
+let rooms = ROOMS.map(() => ({
+  beds:      Array.from({length:10}, (_,i) => mkItem(i+1)),
+  chairsIn:  Array.from({length:4},  (_,i) => mkItem(i+1)),
+  chairsOut: Array.from({length:4},  (_,i) => mkItem(i+1)),
+}));
+
+let globalPatientId = 1;
+let cur = 0;
+let editCtx = null;
+let curS = 'empty';
+let fbReady = false;
+
+function mkItem(localId) {
+  return {localId, patientId:null, status:'empty', name:'', sym:'', enteredAt:null};
+}
+
+// ─── Firebase同期 ─────────────────────────────────────
+// /kyuugo/rooms/{ri}/{kind}/{localId-1} を購読
+function subscribeAll() {
+  ROOMS.forEach((_, ri) => {
+    KIND_KEYS.forEach(kind => {
+      const r = ref(db, `kyuugo/rooms/${ri}/${kind}`);
+      onValue(r, snap => {
+        const data = snap.val();
+        if (!data) return;
+        // data は配列 or オブジェクト
+        const arr = Array.isArray(data) ? data : Object.values(data);
+        // ローカルに反映（長さが違う場合も考慮）
+        const localArr = rooms[ri][kind];
+        arr.forEach((item, idx) => {
+          if (!item) return;
+          if (!localArr[idx]) {
+            localArr[idx] = mkItem(idx+1);
+          }
+          Object.assign(localArr[idx], item, {localId: idx+1});
+        });
+        // Firebaseより長い分を切る
+        if (arr.length < localArr.length) localArr.splice(arr.length);
+        // Firebaseより短い分を追加（ローカル追加が先行した場合）
+        while (localArr.length < arr.length) localArr.push(mkItem(localArr.length+1));
+        renderAll();
+      });
+    });
+  });
+
+  // globalPatientId の同期
+  const pidRef = ref(db, 'kyuugo/globalPatientId');
+  onValue(pidRef, snap => {
+    const v = snap.val();
+    if (v && v > globalPatientId) globalPatientId = v;
+    fbReady = true;
+    setSyncStatus('online');
+  });
+}
+
+function pushItem(ri, kindKey, idx, item) {
+  const r = ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`);
+  set(r, {
+    localId:   item.localId,
+    patientId: item.patientId ?? null,
+    status:    item.status,
+    name:      item.name,
+    sym:       item.sym,
+    enteredAt: item.enteredAt ?? null,
+  }).catch(e => console.warn('Firebase write error:', e));
+}
+
+function pushCount(ri, kindKey) {
+  const arr = rooms[ri][kindKey];
+  // 配列全体をpush
+  const data = arr.map(item => ({
+    localId:   item.localId,
+    patientId: item.patientId ?? null,
+    status:    item.status,
+    name:      item.name,
+    sym:       item.sym,
+    enteredAt: item.enteredAt ?? null,
+  }));
+  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), data)
+    .catch(e => console.warn('Firebase write error:', e));
+}
+
+function pushGlobalPatientId() {
+  set(ref(db, 'kyuugo/globalPatientId'), globalPatientId)
+    .catch(e => console.warn('Firebase write error:', e));
+}
+
+// ─── 接続状態 ─────────────────────────────────────────
+const connRef = ref(db, '.info/connected');
+onValue(connRef, snap => {
+  if (snap.val() === true) {
+    setSyncStatus('online');
+    document.getElementById('offline-banner').classList.remove('show');
+  } else {
+    setSyncStatus('offline');
+    document.getElementById('offline-banner').classList.add('show');
+  }
+});
+
+function setSyncStatus(s) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'dot ' + s;
+  lbl.textContent = s === 'online' ? 'リアルタイム同期中' : s === 'syncing' ? '同期中...' : 'オフライン';
+}
+
+// ─── ヘルパー ─────────────────────────────────────────
+function effS(b) {
+  if (b.status === 'used' && b.enteredAt && Date.now() - b.enteredAt >= OT) return 'overtime';
+  return b.status;
+}
+function nowHHMM() {
+  const n = new Date();
+  return n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
+}
+function parseTimeToTs(hhmm) {
+  if (!hhmm) return null;
+  const [h,m] = hhmm.split(':').map(Number);
+  const d = new Date(); d.setHours(h,m,0,0); return d.getTime();
+}
+function tsToHHMM(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+function statsOf(arr) {
+  const c = {empty:0,used:0,overtime:0,waiting:0};
+  arr.forEach(b => { c[effS(b)]++; });
+  return c;
+}
+function statsHTML(c) {
+  return `<div class="stats">
+    <span class="st st-e">空 ${c.empty}</span>
+    <span class="st st-u">中 ${c.used}</span>
+    <span class="st st-o">超 ${c.overtime}</span>
+    <span class="st st-w">待 ${c.waiting}</span>
+  </div>`;
+}
+function idLabel(b, kind) {
+  return `${ROOMS[cur]}-${KIND_PREFIX[kind]}${b.localId}`;
+}
+function kindToKey(kind) { return KIND_MAP[kind]; }
+
+// ─── レンダリング ─────────────────────────────────────
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = ROOMS.map((n,i) =>
+    `<div class="tab${i===cur?' on':''}" onclick="sw(${i})">${n}</div>`).join('');
+}
+function sw(i) { cur = i; renderTabs(); renderAll(); }
+window.sw = sw;
+
+function renderAll() { renderBedArea(); renderChairArea(); }
+
+function renderBedArea() {
+  const r = rooms[cur];
+  const c = statsOf(r.beds);
+  document.getElementById('bed-area').innerHTML = `
+    <div class="topbar">${statsHTML(c)}<button class="addbtn" onclick="addItem('bed')">＋追加</button></div>
+    <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('bed',-1)">−</button><span class="cval">${r.beds.length}</span><button class="cbtn" onclick="chgCnt('bed',1)">＋</button></div>
+    <div class="bed-grid">${r.beds.map(b => bedHTML(b)).join('')}</div>`;
+}
+
+function bedHTML(b) {
+  const s = effS(b);
+  let tinfo = '';
+  if (b.enteredAt) {
+    const el = Date.now() - b.enteredAt;
+    const m = Math.floor(el/60000), sc = Math.floor((el%60000)/1000);
+    const ec = m>=30?'ed':m>=20?'ew':'';
+    tinfo = `<div class="itime"><span>${tsToHHMM(b.enteredAt)}入室</span><span class="elapsed ${ec}">${m}分${sc}秒</span></div>`;
+  }
+  const pid = b.patientId ? `<span class="id-chip id-pat">P-${b.patientId}</span>` : '';
+  return `<div class="item ${BC[s]}" onclick="openM('bed',${b.localId-1})">
+    <div class="irow"><span class="ibadge ${BB[s]}">${SL[s]}</span></div>
+    <div class="id-row"><span class="id-chip id-item">${ROOMS[cur]}-B${b.localId}</span>${pid}</div>
+    <div class="iname">${b.name||'空き'}</div>
+    <div class="isym">${b.sym||''}</div>
+    ${tinfo}
+  </div>`;
+}
+
+function renderChairArea() {
+  const r = rooms[cur];
+  const cIn = statsOf(r.chairsIn), cOut = statsOf(r.chairsOut);
+  document.getElementById('chair-area').innerHTML = `
+    <div class="subgroup-label">室内椅子</div>
+    <div class="topbar">${statsHTML(cIn)}<button class="addbtn" onclick="addItem('chairIn')">＋追加</button></div>
+    <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('chairIn',-1)">−</button><span class="cval">${r.chairsIn.length}</span><button class="cbtn" onclick="chgCnt('chairIn',1)">＋</button></div>
+    <div class="chair-grid">${r.chairsIn.map(b => chairHTML(b,'chairIn')).join('')}</div>
+    <div class="subgroup-label">室外椅子</div>
+    <div class="topbar">${statsHTML(cOut)}<button class="addbtn" onclick="addItem('chairOut')">＋追加</button></div>
+    <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('chairOut',-1)">−</button><span class="cval">${r.chairsOut.length}</span><button class="cbtn" onclick="chgCnt('chairOut',1)">＋</button></div>
+    <div class="chair-grid">${r.chairsOut.map(b => chairHTML(b,'chairOut')).join('')}</div>`;
+}
+
+function chairHTML(b, kind) {
+  const s = effS(b);
+  let tLine='', eLine='';
+  if (b.enteredAt) {
+    const el = Date.now() - b.enteredAt;
+    const m = Math.floor(el/60000), sc = Math.floor((el%60000)/1000);
+    const ec = m>=30?'ed':m>=20?'ew':'';
+    tLine = `<div class="c-time">${tsToHHMM(b.enteredAt)}入室</div>`;
+    eLine = `<div class="c-elapsed ${ec}">${m}分${sc}秒</div>`;
+  }
+  const pid = b.patientId ? `<div class="c-pid">P-${b.patientId}</div>` : '';
+  const prefix = KIND_PREFIX[kind];
+  return `<div class="chair-item ${BC[s]}" onclick="openM('${kind}',${b.localId-1})">
+    <span class="ibadge ${BB[s]}">${SL[s]}</span>
+    <div class="c-id">${ROOMS[cur]}-${prefix}${b.localId}</div>
+    <div class="c-name">${b.name||'空き'}</div>
+    ${pid}${tLine}${eLine}
+  </div>`;
+}
+
+// ─── ベッド数操作 ─────────────────────────────────────
+function addItem(kind) {
+  const key = kindToKey(kind);
+  const arr = rooms[cur][key];
+  arr.push(mkItem(arr.length+1));
+  pushCount(cur, key);
+  renderAll();
+}
+window.addItem = addItem;
+
+function chgCnt(kind, d) {
+  const key = kindToKey(kind);
+  const arr = rooms[cur][key];
+  const n = Math.max(1, Math.min(40, arr.length + d));
+  if (d > 0) while (arr.length < n) arr.push(mkItem(arr.length+1));
+  else while (arr.length > n) arr.pop();
+  pushCount(cur, key);
+  renderAll();
+}
+window.chgCnt = chgCnt;
+
+// ─── モーダル ─────────────────────────────────────────
+function openM(kind, idx) {
+  const key = kindToKey(kind);
+  const b = rooms[cur][key][idx];
+  if (!b) return;
+  editCtx = {kind, key, idx, roomIdx: cur};
+  curS = b.status === 'empty' ? 'used' : b.status;
+  const prefix = KIND_PREFIX[kind];
+  document.getElementById('mtitle').textContent = `${KIND_LABEL[kind]} ${ROOMS[cur]}-${prefix}${b.localId} 編集`;
+  document.getElementById('id-lbl').textContent = (kind==='bed'?'ベッドID':'椅子ID') + '（部屋内固定）';
+  document.getElementById('fid').value = `${ROOMS[cur]}-${prefix}${b.localId}`;
+  document.getElementById('fpid').value = b.patientId ? 'P-'+b.patientId : '（入室時に自動発番）';
+  document.getElementById('fname').value = b.name;
+  document.getElementById('fsym').value = b.sym;
+  document.getElementById('ftime').value = b.enteredAt ? tsToHHMM(b.enteredAt) : nowHHMM();
+  document.getElementById('time-field').style.display = curS==='empty' ? 'none' : 'block';
+  updSOpts();
+  document.getElementById('ovl').classList.add('show');
+}
+window.openM = openM;
+
+function closeM() { document.getElementById('ovl').classList.remove('show'); editCtx = null; }
+window.closeM = closeM;
+
+function selS(s) {
+  curS = s; updSOpts();
+  document.getElementById('time-field').style.display = s==='empty' ? 'none' : 'block';
+  if (s !== 'empty' && !document.getElementById('ftime').value)
+    document.getElementById('ftime').value = nowHHMM();
+}
+window.selS = selS;
+
+function updSOpts() {
+  document.querySelectorAll('.sopt').forEach(el => el.classList.toggle('sel', el.dataset.s===curS));
+}
+
+function setSym(s) { document.getElementById('fsym').value = s; }
+window.setSym = setSym;
+
+function saveB() {
+  if (!editCtx) return;
+  const {key, idx, roomIdx} = editCtx;
+  const b = rooms[roomIdx][key][idx];
+  if (!b) return;
+  const wasEmpty = b.status === 'empty';
+  b.status = curS;
+  b.name   = document.getElementById('fname').value.trim();
+  b.sym    = document.getElementById('fsym').value.trim();
+  if (curS === 'empty') {
+    b.enteredAt = null;
+    b.patientId = null;
+  } else {
+    if (wasEmpty && !b.patientId) {
+      b.patientId = globalPatientId++;
+      pushGlobalPatientId();
+    }
+    b.enteredAt = parseTimeToTs(document.getElementById('ftime').value);
+  }
+  setSyncStatus('syncing');
+  pushItem(roomIdx, key, idx, b);
+  closeM();
+  renderAll();
+}
+window.saveB = saveB;
+
+// ─── 時計・毎秒更新 ───────────────────────────────────
+function tick() {
+  const now = new Date();
+  const el = document.getElementById('clk');
+  if (el) el.textContent =
+    now.getHours().toString().padStart(2,'0') + ':' +
+    now.getMinutes().toString().padStart(2,'0') + ':' +
+    now.getSeconds().toString().padStart(2,'0');
+  if (!document.getElementById('ovl').classList.contains('show')) renderAll();
+}
+
+// ─── 初期化 ───────────────────────────────────────────
+renderTabs();
+renderAll();
+setInterval(tick, 1000);
+tick();
+subscribeAll();
+</script>
+</body>
+</html>
