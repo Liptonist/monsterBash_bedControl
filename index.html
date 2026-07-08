@@ -16,10 +16,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 .sync-label{font-size:11px;color:#888}
 .clk{font-size:11px;color:#888;margin-left:4px}
-.tabs{display:flex;background:#fff;border-bottom:1px solid #e0e0e0}
-.tab{padding:9px 20px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#666}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e0e0e0;align-items:center}
+.tab{padding:9px 20px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#666;white-space:nowrap}
 .tab.on{color:#1a1a1a;border-bottom-color:#3b82f6;font-weight:500}
 .tab:hover:not(.on){color:#1a1a1a}
+.tab-spacer{flex:1}
+.tab-link{padding:8px 14px;font-size:12px;color:#6b7280;text-decoration:none;display:flex;align-items:center;gap:4px;border:1px solid #e0e0e0;border-radius:6px;margin-right:10px;background:#fff;white-space:nowrap}
+.tab-link:hover{background:#f5f5f5;color:#1a1a1a}
 .split{display:flex;gap:0;min-height:calc(100vh - 90px)}
 .col{flex:1;min-width:0;padding:12px;background:#f5f5f5}
 .col-l{border-right:1px solid #e0e0e0;background:#f0f4ff}
@@ -38,8 +41,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .cbtn{width:22px;height:22px;border-radius:4px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:#333;line-height:1}
 .cbtn:hover{background:#f0f0f0}
 .cval{font-weight:500;min-width:18px;text-align:center}
-.addbtn{font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #ccc;background:#fff;color:#333;cursor:pointer}
-.addbtn:hover{background:#f0f0f0}
 .subgroup-label{font-size:11px;font-weight:600;color:#666;margin:10px 0 5px;padding-left:2px}
 .subgroup-label:first-child{margin-top:0}
 .bed-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
@@ -77,7 +78,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .c-pid{font-size:8px;color:#166534;margin-top:1px}
 .c-time{font-size:8px;color:#888;margin-top:2px}
 .c-elapsed{font-size:8px;font-weight:500;margin-top:1px}
-
 /* Modal */
 .ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
 .ovl.show{display:flex}
@@ -108,7 +108,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .canbtn:hover{background:#f0f0f0}
 .time-hint{font-size:10px;color:#888;margin-top:3px}
 .id-desc{font-size:10px;color:#888;margin-top:2px}
-
+/* 退室エリア */
+.checkout-area{border-top:1px solid #e0e0e0;margin-top:4px;padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.checkout-row{display:flex;align-items:flex-end;gap:8px}
+.checkout-row .finput{flex:1}
+.checkout-btn{background:#dc2626;color:#fff;border:none;border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:500;white-space:nowrap}
+.checkout-btn:hover{background:#b91c1c}
 /* オフラインバナー */
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
 .offline-banner.show{display:block}
@@ -184,6 +189,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <input class="finput" type="time" id="ftime">
         <div class="time-hint">自動入力されます。手動で変更も可能です。</div>
       </div>
+      <!-- 退室エリア（空き以外のとき表示） -->
+      <div class="checkout-area" id="checkout-area" style="display:none">
+        <div>
+          <div class="lbl">退室時刻</div>
+          <input class="finput" type="time" id="fout">
+          <div class="time-hint">デフォルトは現在時刻です。手動変更も可能です。</div>
+        </div>
+        <button class="checkout-btn" onclick="checkoutB()">退室する</button>
+      </div>
     </div>
     <div class="mf">
       <button class="canbtn" onclick="closeM()">キャンセル</button>
@@ -195,7 +209,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, get, runTransaction, connectDatabaseEmulator }
+import { getDatabase, ref, onValue, set, push }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -223,98 +237,73 @@ const KIND_KEYS   = ['beds','chairsIn','chairsOut'];
 const KIND_MAP    = {bed:'beds', chairIn:'chairsIn', chairOut:'chairsOut'};
 
 // ─── ローカル状態 ────────────────────────────────────
-// rooms[i] = { beds:[...], chairsIn:[...], chairsOut:[...] }
-// item = { localId, patientId, status, name, sym, enteredAt }
 let rooms = ROOMS.map(() => ({
   beds:      Array.from({length:10}, (_,i) => mkItem(i+1)),
   chairsIn:  Array.from({length:4},  (_,i) => mkItem(i+1)),
   chairsOut: Array.from({length:4},  (_,i) => mkItem(i+1)),
 }));
-
 let globalPatientId = 1;
 let cur = 0;
 let editCtx = null;
 let curS = 'empty';
-let fbReady = false;
 
 function mkItem(localId) {
   return {localId, patientId:null, status:'empty', name:'', sym:'', enteredAt:null};
 }
 
-// ─── Firebase同期 ─────────────────────────────────────
-// /kyuugo/rooms/{ri}/{kind}/{localId-1} を購読
+// ─── Firebase ────────────────────────────────────────
 function subscribeAll() {
   ROOMS.forEach((_, ri) => {
     KIND_KEYS.forEach(kind => {
-      const r = ref(db, `kyuugo/rooms/${ri}/${kind}`);
-      onValue(r, snap => {
+      onValue(ref(db, `kyuugo/rooms/${ri}/${kind}`), snap => {
         const data = snap.val();
         if (!data) return;
-        // data は配列 or オブジェクト
         const arr = Array.isArray(data) ? data : Object.values(data);
-        // ローカルに反映（長さが違う場合も考慮）
         const localArr = rooms[ri][kind];
         arr.forEach((item, idx) => {
           if (!item) return;
-          if (!localArr[idx]) {
-            localArr[idx] = mkItem(idx+1);
-          }
+          if (!localArr[idx]) localArr[idx] = mkItem(idx+1);
           Object.assign(localArr[idx], item, {localId: idx+1});
         });
-        // Firebaseより長い分を切る
         if (arr.length < localArr.length) localArr.splice(arr.length);
-        // Firebaseより短い分を追加（ローカル追加が先行した場合）
         while (localArr.length < arr.length) localArr.push(mkItem(localArr.length+1));
         renderAll();
       });
     });
   });
-
-  // globalPatientId の同期
-  const pidRef = ref(db, 'kyuugo/globalPatientId');
-  onValue(pidRef, snap => {
+  onValue(ref(db, 'kyuugo/globalPatientId'), snap => {
     const v = snap.val();
     if (v && v > globalPatientId) globalPatientId = v;
-    fbReady = true;
     setSyncStatus('online');
   });
 }
 
 function pushItem(ri, kindKey, idx, item) {
-  const r = ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`);
-  set(r, {
-    localId:   item.localId,
-    patientId: item.patientId ?? null,
-    status:    item.status,
-    name:      item.name,
-    sym:       item.sym,
-    enteredAt: item.enteredAt ?? null,
-  }).catch(e => console.warn('Firebase write error:', e));
+  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`), {
+    localId: item.localId, patientId: item.patientId ?? null,
+    status: item.status, name: item.name, sym: item.sym, enteredAt: item.enteredAt ?? null,
+  }).catch(e => console.warn(e));
 }
 
 function pushCount(ri, kindKey) {
-  const arr = rooms[ri][kindKey];
-  // 配列全体をpush
-  const data = arr.map(item => ({
-    localId:   item.localId,
-    patientId: item.patientId ?? null,
-    status:    item.status,
-    name:      item.name,
-    sym:       item.sym,
-    enteredAt: item.enteredAt ?? null,
+  const data = rooms[ri][kindKey].map(item => ({
+    localId: item.localId, patientId: item.patientId ?? null,
+    status: item.status, name: item.name, sym: item.sym, enteredAt: item.enteredAt ?? null,
   }));
-  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), data)
-    .catch(e => console.warn('Firebase write error:', e));
+  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), data).catch(e => console.warn(e));
 }
 
 function pushGlobalPatientId() {
-  set(ref(db, 'kyuugo/globalPatientId'), globalPatientId)
-    .catch(e => console.warn('Firebase write error:', e));
+  set(ref(db, 'kyuugo/globalPatientId'), globalPatientId).catch(e => console.warn(e));
+}
+
+// 退室済みレコードをFirebaseに追記
+function pushDischarge(record) {
+  push(ref(db, 'kyuugo/discharged'), record).catch(e => console.warn(e));
 }
 
 // ─── 接続状態 ─────────────────────────────────────────
-const connRef = ref(db, '.info/connected');
-onValue(connRef, snap => {
+onValue(ref(db, '.info/connected'), snap => {
   if (snap.val() === true) {
     setSyncStatus('online');
     document.getElementById('offline-banner').classList.remove('show');
@@ -325,20 +314,19 @@ onValue(connRef, snap => {
 });
 
 function setSyncStatus(s) {
-  const dot = document.getElementById('sync-dot');
-  const lbl = document.getElementById('sync-label');
-  dot.className = 'dot ' + s;
-  lbl.textContent = s === 'online' ? 'リアルタイム同期中' : s === 'syncing' ? '同期中...' : 'オフライン';
+  document.getElementById('sync-dot').className = 'dot ' + s;
+  document.getElementById('sync-label').textContent =
+    s==='online' ? 'リアルタイム同期中' : s==='syncing' ? '同期中...' : 'オフライン';
 }
 
 // ─── ヘルパー ─────────────────────────────────────────
 function effS(b) {
-  if (b.status === 'used' && b.enteredAt && Date.now() - b.enteredAt >= OT) return 'overtime';
+  if (b.status==='used' && b.enteredAt && Date.now()-b.enteredAt >= OT) return 'overtime';
   return b.status;
 }
 function nowHHMM() {
   const n = new Date();
-  return n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
+  return n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0');
 }
 function parseTimeToTs(hhmm) {
   if (!hhmm) return null;
@@ -348,10 +336,13 @@ function parseTimeToTs(hhmm) {
 function tsToHHMM(ts) {
   if (!ts) return '';
   const d = new Date(ts);
-  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+}
+function minsStr(ms) {
+  return Math.floor(ms/60000) + '分';
 }
 function statsOf(arr) {
-  const c = {empty:0,used:0,overtime:0,waiting:0};
+  const c={empty:0,used:0,overtime:0,waiting:0};
   arr.forEach(b => { c[effS(b)]++; });
   return c;
 }
@@ -363,26 +354,26 @@ function statsHTML(c) {
     <span class="st st-w">待 ${c.waiting}</span>
   </div>`;
 }
-function idLabel(b, kind) {
-  return `${ROOMS[cur]}-${KIND_PREFIX[kind]}${b.localId}`;
-}
 function kindToKey(kind) { return KIND_MAP[kind]; }
 
-// ─── レンダリング ─────────────────────────────────────
+// ─── タブ ─────────────────────────────────────────────
 function renderTabs() {
-  document.getElementById('tabs').innerHTML = ROOMS.map((n,i) =>
-    `<div class="tab${i===cur?' on':''}" onclick="sw(${i})">${n}</div>`).join('');
+  document.getElementById('tabs').innerHTML =
+    ROOMS.map((n,i) => `<div class="tab${i===cur?' on':''}" onclick="sw(${i})">${n}</div>`).join('') +
+    `<div class="tab-spacer"></div>` +
+    `<a class="tab-link" href="discharged.html" target="_blank">📋 退室済み一覧</a>`;
 }
-function sw(i) { cur = i; renderTabs(); renderAll(); }
+function sw(i) { cur=i; renderTabs(); renderAll(); }
 window.sw = sw;
 
+// ─── レンダリング ─────────────────────────────────────
 function renderAll() { renderBedArea(); renderChairArea(); }
 
 function renderBedArea() {
   const r = rooms[cur];
   const c = statsOf(r.beds);
   document.getElementById('bed-area').innerHTML = `
-    <div class="topbar">${statsHTML(c)}<button class="addbtn" onclick="addItem('bed')">＋追加</button></div>
+    <div class="topbar">${statsHTML(c)}</div>
     <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('bed',-1)">−</button><span class="cval">${r.beds.length}</span><button class="cbtn" onclick="chgCnt('bed',1)">＋</button></div>
     <div class="bed-grid">${r.beds.map(b => bedHTML(b)).join('')}</div>`;
 }
@@ -391,8 +382,8 @@ function bedHTML(b) {
   const s = effS(b);
   let tinfo = '';
   if (b.enteredAt) {
-    const el = Date.now() - b.enteredAt;
-    const m = Math.floor(el/60000), sc = Math.floor((el%60000)/1000);
+    const el = Date.now()-b.enteredAt;
+    const m = Math.floor(el/60000);
     const ec = m>=30?'ed':m>=20?'ew':'';
     tinfo = `<div class="itime"><span>${tsToHHMM(b.enteredAt)}</span><span class="elapsed ${ec}">${m}分</span></div>`;
   }
@@ -411,11 +402,11 @@ function renderChairArea() {
   const cIn = statsOf(r.chairsIn), cOut = statsOf(r.chairsOut);
   document.getElementById('chair-area').innerHTML = `
     <div class="subgroup-label">室内椅子</div>
-    <div class="topbar">${statsHTML(cIn)}<button class="addbtn" onclick="addItem('chairIn')">＋追加</button></div>
+    <div class="topbar">${statsHTML(cIn)}</div>
     <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('chairIn',-1)">−</button><span class="cval">${r.chairsIn.length}</span><button class="cbtn" onclick="chgCnt('chairIn',1)">＋</button></div>
     <div class="chair-grid">${r.chairsIn.map(b => chairHTML(b,'chairIn')).join('')}</div>
     <div class="subgroup-label">室外椅子</div>
-    <div class="topbar">${statsHTML(cOut)}<button class="addbtn" onclick="addItem('chairOut')">＋追加</button></div>
+    <div class="topbar">${statsHTML(cOut)}</div>
     <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('chairOut',-1)">−</button><span class="cval">${r.chairsOut.length}</span><button class="cbtn" onclick="chgCnt('chairOut',1)">＋</button></div>
     <div class="chair-grid">${r.chairsOut.map(b => chairHTML(b,'chairOut')).join('')}</div>`;
 }
@@ -424,8 +415,8 @@ function chairHTML(b, kind) {
   const s = effS(b);
   let tLine='', eLine='';
   if (b.enteredAt) {
-    const el = Date.now() - b.enteredAt;
-    const m = Math.floor(el/60000), sc = Math.floor((el%60000)/1000);
+    const el = Date.now()-b.enteredAt;
+    const m = Math.floor(el/60000);
     const ec = m>=30?'ed':m>=20?'ew':'';
     tLine = `<div class="c-time">${tsToHHMM(b.enteredAt)}</div>`;
     eLine = `<div class="c-elapsed ${ec}">${m}分</div>`;
@@ -441,21 +432,12 @@ function chairHTML(b, kind) {
 }
 
 // ─── ベッド数操作 ─────────────────────────────────────
-function addItem(kind) {
-  const key = kindToKey(kind);
-  const arr = rooms[cur][key];
-  arr.push(mkItem(arr.length+1));
-  pushCount(cur, key);
-  renderAll();
-}
-window.addItem = addItem;
-
 function chgCnt(kind, d) {
   const key = kindToKey(kind);
   const arr = rooms[cur][key];
-  const n = Math.max(1, Math.min(40, arr.length + d));
-  if (d > 0) while (arr.length < n) arr.push(mkItem(arr.length+1));
-  else while (arr.length > n) arr.pop();
+  const n = Math.max(1, Math.min(40, arr.length+d));
+  if (d>0) while (arr.length<n) arr.push(mkItem(arr.length+1));
+  else while (arr.length>n) arr.pop();
   pushCount(cur, key);
   renderAll();
 }
@@ -467,16 +449,20 @@ function openM(kind, idx) {
   const b = rooms[cur][key][idx];
   if (!b) return;
   editCtx = {kind, key, idx, roomIdx: cur};
-  curS = b.status === 'empty' ? 'used' : b.status;
+  curS = b.status==='empty' ? 'used' : b.status;
   const prefix = KIND_PREFIX[kind];
   document.getElementById('mtitle').textContent = `${KIND_LABEL[kind]} ${ROOMS[cur]}-${prefix}${b.localId} 編集`;
-  document.getElementById('id-lbl').textContent = (kind==='bed'?'ベッドID':'椅子ID') + '（部屋内固定）';
+  document.getElementById('id-lbl').textContent = (kind==='bed'?'ベッドID':'椅子ID')+'（部屋内固定）';
   document.getElementById('fid').value = `${prefix}${b.localId}`;
   document.getElementById('fpid').value = b.patientId ? 'P-'+b.patientId : '（入室時に自動発番）';
   document.getElementById('fname').value = b.name;
   document.getElementById('fsym').value = b.sym;
   document.getElementById('ftime').value = b.enteredAt ? tsToHHMM(b.enteredAt) : nowHHMM();
-  document.getElementById('time-field').style.display = curS==='empty' ? 'none' : 'block';
+  document.getElementById('fout').value = nowHHMM();
+  // 退室エリアは空き以外のときだけ表示
+  const isOccupied = curS !== 'empty';
+  document.getElementById('time-field').style.display = isOccupied ? 'block' : 'none';
+  document.getElementById('checkout-area').style.display = isOccupied ? 'flex' : 'none';
   updSOpts();
   document.getElementById('ovl').classList.add('show');
 }
@@ -487,8 +473,10 @@ window.closeM = closeM;
 
 function selS(s) {
   curS = s; updSOpts();
-  document.getElementById('time-field').style.display = s==='empty' ? 'none' : 'block';
-  if (s !== 'empty' && !document.getElementById('ftime').value)
+  const isOccupied = s !== 'empty';
+  document.getElementById('time-field').style.display = isOccupied ? 'block' : 'none';
+  document.getElementById('checkout-area').style.display = isOccupied ? 'flex' : 'none';
+  if (isOccupied && !document.getElementById('ftime').value)
     document.getElementById('ftime').value = nowHHMM();
 }
 window.selS = selS;
@@ -500,49 +488,74 @@ function updSOpts() {
 function setSym(s) { document.getElementById('fsym').value = s; }
 window.setSym = setSym;
 
+// ─── 保存 ─────────────────────────────────────────────
 function saveB() {
   if (!editCtx) return;
   const {key, idx, roomIdx} = editCtx;
   const b = rooms[roomIdx][key][idx];
   if (!b) return;
-  const wasEmpty = b.status === 'empty';
+  const wasEmpty = b.status==='empty';
   b.status = curS;
   b.name   = document.getElementById('fname').value.trim();
   b.sym    = document.getElementById('fsym').value.trim();
-  if (curS === 'empty') {
-    b.enteredAt = null;
-    b.patientId = null;
+  if (curS==='empty') {
+    b.enteredAt = null; b.patientId = null;
   } else {
-    if (wasEmpty && !b.patientId) {
-      b.patientId = globalPatientId++;
-      pushGlobalPatientId();
-    }
+    if (wasEmpty && !b.patientId) { b.patientId = globalPatientId++; pushGlobalPatientId(); }
     b.enteredAt = parseTimeToTs(document.getElementById('ftime').value);
   }
   setSyncStatus('syncing');
   pushItem(roomIdx, key, idx, b);
-  closeM();
-  renderAll();
+  closeM(); renderAll();
 }
 window.saveB = saveB;
+
+// ─── 退室処理 ─────────────────────────────────────────
+function checkoutB() {
+  if (!editCtx) return;
+  const {kind, key, idx, roomIdx} = editCtx;
+  const b = rooms[roomIdx][key][idx];
+  if (!b) return;
+
+  const outTs = parseTimeToTs(document.getElementById('fout').value);
+  const inTs  = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
+  const stayMs = (outTs && inTs) ? Math.max(0, outTs - inTs) : null;
+
+  // 退室済みレコードを保存
+  const record = {
+    patientId:  b.patientId ?? null,
+    name:       document.getElementById('fname').value.trim() || b.name,
+    sym:        document.getElementById('fsym').value.trim()  || b.sym,
+    room:       ROOMS[roomIdx],
+    slotId:     `${KIND_PREFIX[kind]}${b.localId}`,
+    kind:       KIND_LABEL[kind],
+    enteredAt:  inTs ?? null,
+    exitedAt:   outTs ?? null,
+    stayMins:   stayMs !== null ? Math.floor(stayMs/60000) : null,
+    recordedAt: Date.now(),
+  };
+  pushDischarge(record);
+
+  // ベッド/椅子を空欄に
+  b.status = 'empty'; b.name = ''; b.sym = ''; b.enteredAt = null; b.patientId = null;
+  setSyncStatus('syncing');
+  pushItem(roomIdx, key, idx, b);
+  closeM(); renderAll();
+}
+window.checkoutB = checkoutB;
 
 // ─── 時計・毎秒更新 ───────────────────────────────────
 function tick() {
   const now = new Date();
   const el = document.getElementById('clk');
   if (el) el.textContent =
-    now.getHours().toString().padStart(2,'0') + ':' +
-    now.getMinutes().toString().padStart(2,'0') + ':' +
+    now.getHours().toString().padStart(2,'0')+':'+
+    now.getMinutes().toString().padStart(2,'0')+':'+
     now.getSeconds().toString().padStart(2,'0');
   if (!document.getElementById('ovl').classList.contains('show')) renderAll();
 }
 
-// ─── 初期化 ───────────────────────────────────────────
-renderTabs();
-renderAll();
-setInterval(tick, 1000);
-tick();
-subscribeAll();
+renderTabs(); renderAll(); setInterval(tick,1000); tick(); subscribeAll();
 </script>
 </body>
 </html>
