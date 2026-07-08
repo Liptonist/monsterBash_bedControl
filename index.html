@@ -399,7 +399,7 @@ function bedHTML(b) {
   const pid = b.patientId ? `<span class="id-chip id-pat">P-${b.patientId}</span>` : '';
   return `<div class="item ${BC[s]}" onclick="openM('bed',${b.localId-1})">
     <div class="irow"><span class="ibadge ${BB[s]}">${SL[s]}</span></div>
-    <div class="id-row"><span class="id-chip id-item">${ROOMS[cur]}-B${b.localId}</span>${pid}</div>
+    <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}</div>
     <div class="iname">${b.name||'空き'}</div>
     <div class="isym">${b.sym||''}</div>
     ${tinfo}
@@ -434,7 +434,7 @@ function chairHTML(b, kind) {
   const prefix = KIND_PREFIX[kind];
   return `<div class="chair-item ${BC[s]}" onclick="openM('${kind}',${b.localId-1})">
     <span class="ibadge ${BB[s]}">${SL[s]}</span>
-    <div class="c-id">${ROOMS[cur]}-${prefix}${b.localId}</div>
+    <div class="c-id">${prefix}${b.localId}</div>
     <div class="c-name">${b.name||'空き'}</div>
     ${pid}${tLine}${eLine}
   </div>`;
