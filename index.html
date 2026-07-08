@@ -394,7 +394,7 @@ function bedHTML(b) {
     const el = Date.now() - b.enteredAt;
     const m = Math.floor(el/60000), sc = Math.floor((el%60000)/1000);
     const ec = m>=30?'ed':m>=20?'ew':'';
-    tinfo = `<div class="itime"><span>${tsToHHMM(b.enteredAt)}入室</span><span class="elapsed ${ec}">${m}分${sc}秒</span></div>`;
+    tinfo = `<div class="itime"><span>${tsToHHMM(b.enteredAt)}</span><span class="elapsed ${ec}">${m}分</span></div>`;
   }
   const pid = b.patientId ? `<span class="id-chip id-pat">P-${b.patientId}</span>` : '';
   return `<div class="item ${BC[s]}" onclick="openM('bed',${b.localId-1})">
@@ -427,8 +427,8 @@ function chairHTML(b, kind) {
     const el = Date.now() - b.enteredAt;
     const m = Math.floor(el/60000), sc = Math.floor((el%60000)/1000);
     const ec = m>=30?'ed':m>=20?'ew':'';
-    tLine = `<div class="c-time">${tsToHHMM(b.enteredAt)}入室</div>`;
-    eLine = `<div class="c-elapsed ${ec}">${m}分${sc}秒</div>`;
+    tLine = `<div class="c-time">${tsToHHMM(b.enteredAt)}</div>`;
+    eLine = `<div class="c-elapsed ${ec}">${m}分</div>`;
   }
   const pid = b.patientId ? `<div class="c-pid">P-${b.patientId}</div>` : '';
   const prefix = KIND_PREFIX[kind];
@@ -471,7 +471,7 @@ function openM(kind, idx) {
   const prefix = KIND_PREFIX[kind];
   document.getElementById('mtitle').textContent = `${KIND_LABEL[kind]} ${ROOMS[cur]}-${prefix}${b.localId} 編集`;
   document.getElementById('id-lbl').textContent = (kind==='bed'?'ベッドID':'椅子ID') + '（部屋内固定）';
-  document.getElementById('fid').value = `${ROOMS[cur]}-${prefix}${b.localId}`;
+  document.getElementById('fid').value = `${prefix}${b.localId}`;
   document.getElementById('fpid').value = b.patientId ? 'P-'+b.patientId : '（入室時に自動発番）';
   document.getElementById('fname').value = b.name;
   document.getElementById('fsym').value = b.sym;
