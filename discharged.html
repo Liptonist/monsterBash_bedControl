@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>退室済み一覧 | 救護所</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1a1a1a;font-size:14px;background:#f5f5f5}
+.hdr{background:#fff;border-bottom:1px solid #e0e0e0;padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.hdr-title{font-size:15px;font-weight:600;flex:1}
+.back-link{font-size:12px;color:#3b82f6;text-decoration:none;padding:5px 10px;border:1px solid #93c5fd;border-radius:6px;background:#eff6ff}
+.back-link:hover{background:#dbeafe}
+.dot{width:8px;height:8px;border-radius:50%;background:#9e9e9e;flex-shrink:0;transition:background .3s}
+.dot.online{background:#22c55e;animation:blink 2s infinite}
+.dot.offline{background:#ef4444}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.sync-label{font-size:11px;color:#888}
+.content{padding:14px}
+.summary{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.sum-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px}
+.sum-num{font-size:22px;font-weight:600;color:#3b82f6}
+.sum-lbl{font-size:11px;color:#888;margin-top:2px}
+.filter-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filter-label{font-size:12px;color:#666}
+.filter-select{font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#1a1a1a}
+.empty-msg{text-align:center;color:#aaa;padding:40px;font-size:13px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+thead{background:#f0f4ff}
+th{font-size:11px;font-weight:600;color:#555;padding:9px 10px;text-align:left;border-bottom:1px solid #e0e0e0;white-space:nowrap}
+td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.pid{font-size:10px;padding:2px 6px;border-radius:4px;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-weight:500}
+.room-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;font-weight:500}
+.slot-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#f5f5f5;border:1px solid #ccc;color:#555;font-weight:500}
+.stay{font-weight:500;color:#374151}
+.stay.long{color:#dc2626}
+.offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
+.offline-banner.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="offline-banner" id="offline-banner">⚠️ オフライン中 — 回線復帰時に最新データが表示されます</div>
+
+<div class="hdr">
+  <a class="back-link" href="index.html">← 戻る</a>
+  <span class="hdr-title">📋 退室済み一覧</span>
+  <div class="dot" id="sync-dot"></div>
+  <span class="sync-label" id="sync-label">接続中...</span>
+</div>
+
+<div class="content">
+  <div class="summary" id="summary"></div>
+  <div class="filter-row">
+    <span class="filter-label">絞り込み：</span>
+    <select class="filter-select" id="filter-room" onchange="applyFilter()">
+      <option value="">全部屋</option>
+      <option>本部</option>
+      <option>空海横</option>
+      <option>茶道</option>
+    </select>
+    <select class="filter-select" id="filter-kind" onchange="applyFilter()">
+      <option value="">全種別</option>
+      <option value="ベッド">ベッド</option>
+      <option value="室内椅子">室内椅子</option>
+      <option value="室外椅子">室外椅子</option>
+    </select>
+  </div>
+  <div id="table-area"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA2CJS6NF3rr46138iP5E8QZNRxz9kUzYk",
+  authDomain: "monster-bash-2026-medical.firebaseapp.com",
+  databaseURL: "https://monster-bash-2026-medical-default-rtdb.firebaseio.com",
+  projectId: "monster-bash-2026-medical",
+  storageBucket: "monster-bash-2026-medical.firebasestorage.app",
+  messagingSenderId: "728030132786",
+  appId: "1:728030132786:web:c6bd82bf1ccdb1f7761a2b",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let allRecords = [];
+
+function tsToHHMM(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+}
+
+onValue(ref(db, '.info/connected'), snap => {
+  const online = snap.val() === true;
+  document.getElementById('sync-dot').className = 'dot ' + (online ? 'online' : 'offline');
+  document.getElementById('sync-label').textContent = online ? 'リアルタイム同期中' : 'オフライン';
+  document.getElementById('offline-banner').classList.toggle('show', !online);
+});
+
+onValue(ref(db, 'kyuugo/discharged'), snap => {
+  const data = snap.val();
+  if (!data) { allRecords = []; render([]); return; }
+  // Firebaseのpushキーでソート（新しい順）
+  allRecords = Object.entries(data)
+    .map(([k, v]) => ({...v, _key: k}))
+    .sort((a,b) => (b.recordedAt||0) - (a.recordedAt||0));
+  applyFilter();
+});
+
+function applyFilter() {
+  const room = document.getElementById('filter-room').value;
+  const kind = document.getElementById('filter-kind').value;
+  const filtered = allRecords.filter(r =>
+    (!room || r.room === room) &&
+    (!kind || r.kind === kind)
+  );
+  render(filtered);
+}
+window.applyFilter = applyFilter;
+
+function render(records) {
+  // サマリー
+  document.getElementById('summary').innerHTML = `
+    <div class="sum-card"><div class="sum-num">${allRecords.length}</div><div class="sum-lbl">総退室数</div></div>
+    <div class="sum-card"><div class="sum-num">${avgStay(allRecords)}</div><div class="sum-lbl">平均滞在(分)</div></div>
+    <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'本部')}</div><div class="sum-lbl">本部</div></div>
+    <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'空海横')}</div><div class="sum-lbl">空海横</div></div>
+    <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'茶道')}</div><div class="sum-lbl">茶道</div></div>
+  `;
+
+  if (records.length === 0) {
+    document.getElementById('table-area').innerHTML =
+      `<div class="empty-msg">退室済みの記録はまだありません</div>`;
+    return;
+  }
+
+  const rows = records.map(r => {
+    const stay = r.stayMins != null ? r.stayMins : '—';
+    const stayClass = r.stayMins >= 30 ? 'stay long' : 'stay';
+    return `<tr>
+      <td>${r.patientId ? `<span class="pid">P-${r.patientId}</span>` : '—'}</td>
+      <td>${r.name || '—'}</td>
+      <td>${r.sym || '—'}</td>
+      <td><span class="room-badge">${r.room||'—'}</span></td>
+      <td><span class="slot-badge">${r.slotId||'—'}</span></td>
+      <td>${r.kind||'—'}</td>
+      <td>${tsToHHMM(r.enteredAt)}</td>
+      <td>${tsToHHMM(r.exitedAt)}</td>
+      <td class="${stayClass}">${stay !== '—' ? stay+'分' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('table-area').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>患者ID</th>
+          <th>患者名</th>
+          <th>症状</th>
+          <th>部屋</th>
+          <th>席ID</th>
+          <th>種別</th>
+          <th>入室</th>
+          <th>退室</th>
+          <th>滞在時間</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function avgStay(records) {
+  const valid = records.filter(r => r.stayMins != null);
+  if (!valid.length) return '—';
+  return Math.round(valid.reduce((s,r) => s+r.stayMins, 0) / valid.length);
+}
+function countRoom(records, room) {
+  return records.filter(r => r.room === room).length;
+}
+</script>
+</body>
+</html>
