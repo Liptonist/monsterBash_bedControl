@@ -114,6 +114,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .checkout-btn:hover{background:#b91c1c}
 .checkout-btn:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed}
 .time-hint{font-size:10px;color:#888;margin-top:3px}
+.mv{padding:14px 16px;border-top:1px solid #e0e0e0}
 .movebtn{width:100%;margin-top:8px;background:#eff6ff;color:#1e40af;border:1px solid #93c5fd;border-radius:6px;padding:9px;font-size:13px;cursor:pointer;font-weight:500}
 .movebtn:hover{background:#dbeafe}
 .movebtn:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed;border-color:#e5e7eb}
@@ -231,31 +232,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <input class="finput" type="time" id="fout">
         <div class="time-hint">デフォルトは現在時刻です。手動変更も可能です。</div>
       </div>
-      <div id="move-field">
-        <div class="lbl">🔀 別のベッド・椅子へ移動</div>
-        <div class="id-fields">
-          <div>
-            <div class="lbl">移動先の部屋</div>
-            <select class="finput" id="fmove-room" onchange="updateMoveSlotOptions()"></select>
-          </div>
-          <div>
-            <div class="lbl">種別</div>
-            <select class="finput" id="fmove-kind" onchange="updateMoveSlotOptions()">
-              <option value="bed">ベッド</option>
-              <option value="chairIn">室内椅子</option>
-              <option value="chairOut">室外椅子</option>
-            </select>
-          </div>
-        </div>
-        <div class="lbl" style="margin-top:8px">移動先の空き番号</div>
-        <select class="finput" id="fmove-slot"></select>
-        <button class="movebtn" id="move-btn" onclick="moveB()">この場所へ移動する</button>
-      </div>
     </div>
     <div class="mf">
       <button class="checkout-btn" id="checkout-btn" onclick="checkoutB()">退室する</button>
       <button class="canbtn" onclick="closeM()">キャンセル</button>
       <button class="savebtn" onclick="saveB()">保存する</button>
+    </div>
+    <div id="move-field" class="mv">
+      <div class="lbl">🔀 別のベッド・椅子へ移動</div>
+      <div class="id-fields">
+        <div>
+          <div class="lbl">移動先の部屋</div>
+          <select class="finput" id="fmove-room" onchange="updateMoveSlotOptions()"></select>
+        </div>
+        <div>
+          <div class="lbl">種別</div>
+          <select class="finput" id="fmove-kind" onchange="updateMoveSlotOptions()">
+            <option value="bed">ベッド</option>
+            <option value="chairIn">室内椅子</option>
+            <option value="chairOut">室外椅子</option>
+          </select>
+        </div>
+      </div>
+      <div class="lbl" style="margin-top:8px">移動先の空き番号</div>
+      <select class="finput" id="fmove-slot"></select>
+      <button class="movebtn" id="move-btn" onclick="moveB()">この場所へ移動する</button>
     </div>
   </div>
 </div>
