@@ -71,13 +71,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .elapsed{font-weight:500;white-space:nowrap}
 .ew{color:#d97706}
 .ed{color:#dc2626;font-weight:700}
-.c-id{font-size:9px;font-weight:500;color:#555;margin-bottom:2px}
+.c-idrow{display:flex;align-items:center;justify-content:space-between;gap:3px;margin-bottom:2px}
+.c-id{font-size:9px;font-weight:500;color:#555}
 .c-name{font-size:10px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.c-pid{font-size:8px;color:#166534;margin-top:1px}
+.c-pid{font-size:8px;color:#166534;font-weight:500}
 .c-sym{font-size:8px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .c-wait{font-size:8px;color:#6b3a2a;font-weight:500;margin-top:1px}
-.c-time{font-size:8px;color:#888;margin-top:2px}
-.c-elapsed{font-size:8px;font-weight:500;margin-top:1px}
+.c-timerow{display:flex;justify-content:space-between;align-items:center;gap:3px;margin-top:2px}
+.c-time{font-size:8px;color:#888}
+.c-elapsed{font-size:8px;font-weight:500}
 .c-elapsed.ed{color:#dc2626;font-weight:700}
 .c-elapsed.ew{color:#d97706}
 /* Modal */
@@ -471,24 +473,23 @@ function renderChairArea() {
 }
 
 function chairHTML(b, kind) {
-  let tLine='', eLine='';
+  let timeRow = '';
   if (b.enteredAt) {
     const m = Math.floor((Date.now()-b.enteredAt)/60000);
     const ec = m>=30?'ed':m>=20?'ew':'';
-    tLine = `<div class="c-time">${tsToHHMM(b.enteredAt)}</div>`;
-    eLine = `<div class="c-elapsed ${ec}">${m}分</div>`;
+    timeRow = `<div class="c-timerow"><span class="c-time">${tsToHHMM(b.enteredAt)}</span><span class="c-elapsed ${ec}">${m}分</span></div>`;
   }
-  const pid  = b.patientId ? `<div class="c-pid">P-${b.patientId}</div>` : '';
+  const pid  = b.patientId ? `<span class="c-pid">P-${b.patientId}</span>` : '';
   const sym  = b.sym ? `<div class="c-sym">${b.sym}</div>` : '';
   const wait = b.waiting ? `<div class="c-wait">送迎待ち</div>` : '';
   const prefix = KIND_PREFIX[kind];
   const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
   const ag = ageGenderText(b);
   return `<div class="chair-item ${b.status}" onclick="openM('${kind}',${b.localId-1})">
-    <div class="c-id">${prefix}${b.localId}</div>
+    <div class="c-idrow"><span class="c-id">${prefix}${b.localId}</span>${pid}</div>
     <div class="c-name">${nameText}</div>
     ${ag ? `<div class="c-age">${ag}</div>` : ''}
-    ${sym}${pid}${wait}${tLine}${eLine}
+    ${sym}${wait}${timeRow}
   </div>`;
 }
 
