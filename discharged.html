@@ -36,6 +36,8 @@ tr:hover td{background:#fafafa}
 .slot-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#f5f5f5;border:1px solid #ccc;color:#555;font-weight:500}
 .stay{font-weight:500;color:#374151}
 .stay.long{color:#dc2626}
+.del-btn{background:none;border:1px solid #fca5a5;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;color:#dc2626;line-height:1}
+.del-btn:hover{background:#fee2e2}
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
 .offline-banner.show{display:block}
 </style>
@@ -73,7 +75,7 @@ tr:hover td{background:#fafafa}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA2CJS6NF3rr46138iP5E8QZNRxz9kUzYk",
@@ -153,6 +155,7 @@ function render(records) {
       <td>${tsToHHMM(r.enteredAt)}</td>
       <td>${tsToHHMM(r.exitedAt)}</td>
       <td class="${stayClass}">${stay !== '—' ? stay+'分' : '—'}</td>
+      <td><button class="del-btn" onclick="moveToTrash('${r._key}')" title="ゴミ箱に移動">🗑️</button></td>
     </tr>`;
   }).join('');
 
@@ -169,11 +172,23 @@ function render(records) {
           <th>入室</th>
           <th>退室</th>
           <th>滞在時間</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
+
+function moveToTrash(key) {
+  if (!confirm('この記録をゴミ箱に移動しますか？')) return;
+  const rec = allRecords.find(r => r._key === key);
+  if (!rec) return;
+  const { _key, ...data } = rec;
+  set(ref(db, 'kyuugo/discharged_trash/' + key), { ...data, trashedAt: Date.now() })
+    .then(() => remove(ref(db, 'kyuugo/discharged/' + key)))
+    .catch(e => console.warn(e));
+}
+window.moveToTrash = moveToTrash;
 
 function avgStay(records) {
   const valid = records.filter(r => r.stayMins != null);
