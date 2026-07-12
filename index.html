@@ -114,6 +114,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .checkout-btn:hover{background:#b91c1c}
 .checkout-btn:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed}
 .time-hint{font-size:10px;color:#888;margin-top:3px}
+.movebtn{width:100%;margin-top:8px;background:#eff6ff;color:#1e40af;border:1px solid #93c5fd;border-radius:6px;padding:9px;font-size:13px;cursor:pointer;font-weight:500}
+.movebtn:hover{background:#dbeafe}
+.movebtn:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed;border-color:#e5e7eb}
 .id-desc{font-size:10px;color:#888;margin-top:2px}
 /* オフラインバナー */
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
@@ -227,6 +230,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="lbl">退室時刻</div>
         <input class="finput" type="time" id="fout">
         <div class="time-hint">デフォルトは現在時刻です。手動変更も可能です。</div>
+      </div>
+      <div id="move-field">
+        <div class="lbl">🔀 別のベッド・椅子へ移動</div>
+        <div class="id-fields">
+          <div>
+            <div class="lbl">移動先の部屋</div>
+            <select class="finput" id="fmove-room" onchange="updateMoveSlotOptions()"></select>
+          </div>
+          <div>
+            <div class="lbl">種別</div>
+            <select class="finput" id="fmove-kind" onchange="updateMoveSlotOptions()">
+              <option value="bed">ベッド</option>
+              <option value="chairIn">室内椅子</option>
+              <option value="chairOut">室外椅子</option>
+            </select>
+          </div>
+        </div>
+        <div class="lbl" style="margin-top:8px">移動先の空き番号</div>
+        <select class="finput" id="fmove-slot"></select>
+        <button class="movebtn" id="move-btn" onclick="moveB()">この場所へ移動する</button>
       </div>
     </div>
     <div class="mf">
@@ -499,6 +522,10 @@ function openM(kind, idx) {
   document.getElementById('fwait').checked = !!b.waiting;
   document.getElementById('ftime').value = b.enteredAt ? tsToHHMM(b.enteredAt) : nowHHMM();
   document.getElementById('fout').value = nowHHMM();
+  document.getElementById('fmove-room').innerHTML =
+    ROOMS.map((n,i) => `<option value="${i}"${i===cur?' selected':''}>${n}</option>`).join('');
+  document.getElementById('fmove-kind').value = kind;
+  updateMoveSlotOptions();
   updateFieldVisibility();
   updSOpts();
   document.getElementById('ovl').classList.add('show');
@@ -510,7 +537,29 @@ function updateFieldVisibility() {
   document.getElementById('time-field').style.display = isOccupied ? 'block' : 'none';
   document.getElementById('out-field').style.display = isOccupied ? 'block' : 'none';
   document.getElementById('checkout-btn').style.display = isOccupied ? 'block' : 'none';
+  document.getElementById('move-field').style.display = isOccupied ? 'block' : 'none';
 }
+
+function updateMoveSlotOptions() {
+  const ri = Number(document.getElementById('fmove-room').value);
+  const kind = document.getElementById('fmove-kind').value;
+  const key = kindToKey(kind);
+  const arr = rooms[ri][key];
+  const prefix = KIND_PREFIX[kind];
+  const emptySlots = arr.map((it, i) => ({it, i})).filter(({it}) => it.status === 'empty');
+  const sel = document.getElementById('fmove-slot');
+  const btn = document.getElementById('move-btn');
+  if (emptySlots.length === 0) {
+    sel.innerHTML = `<option value="">空きなし</option>`;
+    sel.disabled = true;
+    if (btn) btn.disabled = true;
+  } else {
+    sel.disabled = false;
+    if (btn) btn.disabled = false;
+    sel.innerHTML = emptySlots.map(({it,i}) => `<option value="${i}">${prefix}${it.localId}</option>`).join('');
+  }
+}
+window.updateMoveSlotOptions = updateMoveSlotOptions;
 
 function closeM() { document.getElementById('ovl').classList.remove('show'); editCtx = null; }
 window.closeM = closeM;
@@ -613,6 +662,51 @@ function checkoutB() {
   closeM(); renderAll();
 }
 window.checkoutB = checkoutB;
+
+// ─── 移動処理 ─────────────────────────────────────────
+function moveB() {
+  if (!editCtx) return;
+  const {key, idx, roomIdx} = editCtx;
+  const b = rooms[roomIdx][key][idx];
+  if (!b || b.status==='empty') return;
+
+  const destRoom = Number(document.getElementById('fmove-room').value);
+  const destKind = document.getElementById('fmove-kind').value;
+  const destKey  = kindToKey(destKind);
+  const destIdxStr = document.getElementById('fmove-slot').value;
+  if (destIdxStr === '') { alert('移動先の空きがありません'); return; }
+  const destIdx = Number(destIdxStr);
+  if (roomIdx === destRoom && key === destKey && idx === destIdx) return;
+
+  const dest = rooms[destRoom][destKey][destIdx];
+  if (!dest || dest.status !== 'empty') {
+    alert('選択した移動先はすでに使用中です。もう一度選び直してください。');
+    updateMoveSlotOptions();
+    return;
+  }
+
+  const destPrefix = KIND_PREFIX[destKind];
+  const nameLabel = document.getElementById('fname').value.trim() || b.name || '氏名未入力';
+  if (!confirm(`${nameLabel} さんを ${ROOMS[destRoom]}-${destPrefix}${dest.localId} へ移動しますか？`)) return;
+
+  const ageVal = document.getElementById('fage').value;
+  dest.status   = curS;
+  dest.name     = document.getElementById('fname').value.trim();
+  dest.sym      = document.getElementById('fsym').value.trim();
+  dest.waiting  = document.getElementById('fwait').checked;
+  dest.age      = ageVal !== '' ? Number(ageVal) : null;
+  dest.gender   = document.getElementById('fgender').value;
+  dest.patientId = b.patientId;
+  dest.enteredAt = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
+
+  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
+
+  setSyncStatus('syncing');
+  pushItem(destRoom, destKey, destIdx, dest);
+  pushItem(roomIdx, key, idx, b);
+  closeM(); renderAll();
+}
+window.moveB = moveB;
 
 // ─── 時計・毎秒更新 ───────────────────────────────────
 function tick() {
