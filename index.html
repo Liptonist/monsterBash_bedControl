@@ -66,6 +66,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .iname{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
 .isym{font-size:10px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;min-height:13px}
 .itime{font-size:9px;color:#888;display:flex;justify-content:space-between;align-items:center;gap:3px}
+.iage{font-size:10px;color:#888;font-weight:400}
+.c-age{font-size:8px;color:#888;font-weight:400}
 .elapsed{font-weight:500;white-space:nowrap}
 .ew{color:#d97706}
 .ed{color:#dc2626;font-weight:700}
@@ -175,6 +177,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="lbl">患者名</div>
         <input class="finput" id="fname" placeholder="例：山田 太郎">
       </div>
+      <div class="id-fields">
+        <div>
+          <div class="lbl">年齢</div>
+          <input class="finput" type="number" id="fage" placeholder="例：25" min="0" max="120">
+        </div>
+        <div>
+          <div class="lbl">性別</div>
+          <select class="finput" id="fgender">
+            <option value="">未選択</option>
+            <option value="男性">男性</option>
+            <option value="女性">女性</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+      </div>
       <div>
         <div class="lbl">症状</div>
         <div class="symq">
@@ -247,7 +264,7 @@ let editCtx = null;
 let curS = 'empty';
 
 function mkItem(localId) {
-  return {localId, patientId:null, status:'empty', name:'', sym:'', waiting:false, enteredAt:null};
+  return {localId, patientId:null, status:'empty', name:'', sym:'', waiting:false, enteredAt:null, age:null, gender:''};
 }
 function normStatus(s) {
   if (!s) return 'empty';
@@ -290,6 +307,7 @@ function itemPayload(item) {
     localId: item.localId, patientId: item.patientId ?? null,
     status: item.status, name: item.name, sym: item.sym,
     waiting: !!item.waiting, enteredAt: item.enteredAt ?? null,
+    age: item.age ?? null, gender: item.gender || '',
   };
 }
 function pushItem(ri, kindKey, idx, item) {
@@ -351,6 +369,12 @@ function statsHTML(c) {
   </div>`;
 }
 function kindToKey(kind) { return KIND_MAP[kind]; }
+function ageGenderText(b) {
+  const parts = [];
+  if (b.age != null && b.age !== '') parts.push(`${b.age}歳`);
+  if (b.gender) parts.push(b.gender);
+  return parts.join('・');
+}
 
 // ─── タブ ─────────────────────────────────────────────
 function renderTabs() {
@@ -383,9 +407,11 @@ function bedHTML(b) {
   }
   const pid  = b.patientId ? `<span class="id-chip id-pat">P-${b.patientId}</span>` : '';
   const wait = b.waiting ? `<span class="wait-chip">送迎待ち</span>` : '';
+  const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
+  const ag = ageGenderText(b);
   return `<div class="item ${b.status}" onclick="openM('bed',${b.localId-1})">
     <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}${wait}</div>
-    <div class="iname">${b.name||'空き'}</div>
+    <div class="iname">${nameText}${ag ? ` <span class="iage">（${ag}）</span>` : ''}</div>
     <div class="isym">${b.sym||''}</div>
     ${tinfo}
   </div>`;
@@ -417,9 +443,11 @@ function chairHTML(b, kind) {
   const sym  = b.sym ? `<div class="c-sym">${b.sym}</div>` : '';
   const wait = b.waiting ? `<div class="c-wait">送迎待ち</div>` : '';
   const prefix = KIND_PREFIX[kind];
+  const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
+  const ag = ageGenderText(b);
   return `<div class="chair-item ${b.status}" onclick="openM('${kind}',${b.localId-1})">
     <div class="c-id">${prefix}${b.localId}</div>
-    <div class="c-name">${b.name||'空き'}</div>
+    <div class="c-name">${nameText}${ag ? ` <span class="c-age">（${ag}）</span>` : ''}</div>
     ${sym}${pid}${wait}${tLine}${eLine}
   </div>`;
 }
@@ -449,6 +477,8 @@ function openM(kind, idx) {
   document.getElementById('fid').value = `${prefix}${b.localId}`;
   document.getElementById('fpid').value = b.patientId ? 'P-'+b.patientId : '（入室時に自動発番）';
   document.getElementById('fname').value = b.name;
+  document.getElementById('fage').value = b.age ?? '';
+  document.getElementById('fgender').value = b.gender || '';
   document.getElementById('fsym').value = b.sym;
   document.getElementById('fwait').checked = !!b.waiting;
   document.getElementById('ftime').value = b.enteredAt ? tsToHHMM(b.enteredAt) : nowHHMM();
@@ -494,6 +524,9 @@ function saveB() {
   b.name    = document.getElementById('fname').value.trim();
   b.sym     = document.getElementById('fsym').value.trim();
   b.waiting = document.getElementById('fwait').checked;
+  const ageVal = document.getElementById('fage').value;
+  b.age     = ageVal !== '' ? Number(ageVal) : null;
+  b.gender  = document.getElementById('fgender').value;
   if (curS==='empty') {
     b.enteredAt = null; b.patientId = null; b.waiting = false;
     setSyncStatus('syncing');
@@ -540,9 +573,12 @@ function checkoutB() {
   const inTs  = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
   const stayMs = (outTs && inTs) ? Math.max(0, outTs - inTs) : null;
 
+  const ageVal = document.getElementById('fage').value;
   const record = {
     patientId:  b.patientId ?? null,
     name:       document.getElementById('fname').value.trim() || b.name,
+    age:        ageVal !== '' ? Number(ageVal) : (b.age ?? null),
+    gender:     document.getElementById('fgender').value || b.gender || null,
     sym:        document.getElementById('fsym').value.trim()  || b.sym,
     room:       ROOMS[roomIdx],
     slotId:     `${KIND_PREFIX[kind]}${b.localId}`,
@@ -555,7 +591,7 @@ function checkoutB() {
   };
   pushDischarge(record);
 
-  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null;
+  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
   setSyncStatus('syncing');
   pushItem(roomIdx, key, idx, b);
   closeM(); renderAll();
