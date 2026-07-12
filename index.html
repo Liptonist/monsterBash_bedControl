@@ -34,8 +34,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .stats{display:flex;gap:4px;flex-wrap:wrap}
 .st{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
 .st-e{background:#dbeafe;color:#1e40af}
-.st-u{background:#fef9c3;color:#92400e}
-.st-o{background:#fee2e2;color:#991b1b}
+.st-g{background:#dcfce7;color:#166534}
+.st-y{background:#fef9c3;color:#92400e}
+.st-r{background:#fee2e2;color:#991b1b}
 .st-w{background:#f3ede8;color:#6b3a2a}
 .ctrl{display:flex;align-items:center;gap:5px;font-size:11px;color:#666;margin-bottom:7px}
 .cbtn{width:22px;height:22px;border-radius:4px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:#333;line-height:1}
@@ -48,36 +49,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .item{border-radius:8px;padding:8px;cursor:pointer;transition:transform .1s,box-shadow .1s;border:1.5px solid transparent;background:#fff}
 .item:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .item.empty{background:#eff6ff;border-color:#93c5fd}
-.item.used{background:#fefce8;border-color:#facc15}
-.item.overtime{background:#fee2e2;border-color:#f87171}
-.item.waiting{background:#f5ede6;border-color:#c4a18a}
+.item.green{background:#f0fdf4;border-color:#4ade80}
+.item.yellow{background:#fefce8;border-color:#facc15}
+.item.red{background:#fee2e2;border-color:#f87171}
 .chair-item{border-radius:7px;padding:6px 5px;cursor:pointer;transition:transform .1s;border:1.5px solid transparent;text-align:center}
 .chair-item:hover{transform:translateY(-1px)}
 .chair-item.empty{background:#eff6ff;border-color:#93c5fd}
-.chair-item.used{background:#fefce8;border-color:#facc15}
-.chair-item.overtime{background:#fee2e2;border-color:#f87171}
-.chair-item.waiting{background:#f5ede6;border-color:#c4a18a}
-.ibadge{font-size:8px;padding:1px 5px;border-radius:9px;font-weight:500;display:inline-block;margin-bottom:3px}
-.bb-e{background:#bfdbfe;color:#1e40af}
-.bb-u{background:#fde68a;color:#92400e}
-.bb-o{background:#fecaca;color:#991b1b}
-.bb-w{background:#e8d5c4;color:#6b3a2a}
+.chair-item.green{background:#f0fdf4;border-color:#4ade80}
+.chair-item.yellow{background:#fefce8;border-color:#facc15}
+.chair-item.red{background:#fee2e2;border-color:#f87171}
 .id-row{display:flex;gap:3px;align-items:center;margin-bottom:3px;flex-wrap:wrap}
 .id-chip{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:500}
 .id-item{background:#f0f0f0;border:1px solid #ccc;color:#555}
 .id-pat{background:#f0fdf4;border:1px solid #86efac;color:#166534}
-.irow{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.wait-chip{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:500;background:#e8d5c4;color:#6b3a2a;border:1px solid #c4a18a}
 .iname{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
 .isym{font-size:10px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;min-height:13px}
 .itime{font-size:9px;color:#888;display:flex;justify-content:space-between;align-items:center;gap:3px}
 .elapsed{font-weight:500;white-space:nowrap}
 .ew{color:#d97706}
-.ed{color:#dc2626}
+.ed{color:#dc2626;font-weight:700}
 .c-id{font-size:9px;font-weight:500;color:#555;margin-bottom:2px}
 .c-name{font-size:10px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c-pid{font-size:8px;color:#166534;margin-top:1px}
+.c-wait{font-size:8px;color:#6b3a2a;font-weight:500;margin-top:1px}
 .c-time{font-size:8px;color:#888;margin-top:2px}
 .c-elapsed{font-size:8px;font-weight:500;margin-top:1px}
+.c-elapsed.ed{color:#dc2626;font-weight:700}
+.c-elapsed.ew{color:#d97706}
 /* Modal */
 .ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
 .ovl.show{display:flex}
@@ -86,14 +85,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .mht{font-size:15px;font-weight:600}
 .xbtn{background:none;border:none;cursor:pointer;color:#888;font-size:18px;line-height:1;padding:2px}
 .mb{padding:14px 16px;display:flex;flex-direction:column;gap:11px}
-.mf{padding:12px 16px;border-top:1px solid #e0e0e0;display:flex;gap:8px;justify-content:flex-end}
+.mf{padding:12px 16px;border-top:1px solid #e0e0e0;display:flex;gap:8px;justify-content:flex-end;align-items:center}
 .lbl{font-size:11px;color:#666;margin-bottom:4px;font-weight:500}
 .sopts{display:grid;grid-template-columns:repeat(2,1fr);gap:5px}
 .sopt{padding:8px 4px;border-radius:6px;border:1.5px solid transparent;cursor:pointer;font-size:11px;text-align:center;font-weight:500}
 .sopt.se{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
-.sopt.su{background:#fefce8;border-color:#fde68a;color:#92400e}
-.sopt.so{background:#fee2e2;border-color:#fecaca;color:#991b1b}
-.sopt.sw{background:#f5ede6;border-color:#e8d5c4;color:#6b3a2a}
+.sopt.sg{background:#f0fdf4;border-color:#86efac;color:#166534}
+.sopt.sy{background:#fefce8;border-color:#fde68a;color:#92400e}
+.sopt.sr{background:#fee2e2;border-color:#fecaca;color:#991b1b}
 .sopt.sel{box-shadow:0 0 0 2px #3b82f6}
 .finput{width:100%;font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;background:#fafafa;color:#1a1a1a}
 .finput:focus{outline:none;border-color:#3b82f6;background:#fff}
@@ -102,18 +101,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .symq{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .sqb{padding:4px 12px;border-radius:20px;border:1px solid #ccc;background:#fafafa;font-size:11px;cursor:pointer;color:#555}
 .sqb:hover{background:#eff6ff;color:#1e40af;border-color:#93c5fd}
+.wait-check{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#6b3a2a;cursor:pointer;user-select:none}
+.wait-check input{width:16px;height:16px;accent-color:#8b5e3c;cursor:pointer}
 .savebtn{background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:9px 22px;font-size:13px;cursor:pointer;font-weight:500}
 .savebtn:hover{background:#2563eb}
 .canbtn{background:none;border:1px solid #ccc;border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;color:#555}
 .canbtn:hover{background:#f0f0f0}
+.checkout-btn{background:#dc2626;color:#fff;border:none;border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:500;white-space:nowrap;margin-right:auto}
+.checkout-btn:hover{background:#b91c1c}
+.checkout-btn:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed}
 .time-hint{font-size:10px;color:#888;margin-top:3px}
 .id-desc{font-size:10px;color:#888;margin-top:2px}
-/* 退室エリア */
-.checkout-area{border-top:1px solid #e0e0e0;margin-top:4px;padding-top:12px;display:flex;flex-direction:column;gap:8px}
-.checkout-row{display:flex;align-items:flex-end;gap:8px}
-.checkout-row .finput{flex:1}
-.checkout-btn{background:#dc2626;color:#fff;border:none;border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:500;white-space:nowrap}
-.checkout-btn:hover{background:#b91c1c}
 /* オフラインバナー */
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
 .offline-banner.show{display:block}
@@ -152,12 +150,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
     </div>
     <div class="mb">
       <div>
-        <div class="lbl">状態</div>
+        <div class="lbl">状態（トリアージ）</div>
         <div class="sopts">
           <div class="sopt se" data-s="empty" onclick="selS('empty')">空き</div>
-          <div class="sopt su" data-s="used" onclick="selS('used')">使用中</div>
-          <div class="sopt so" data-s="overtime" onclick="selS('overtime')">時間超過</div>
-          <div class="sopt sw" data-s="waiting" onclick="selS('waiting')">送迎待ち</div>
+          <div class="sopt sg" data-s="green" onclick="selS('green')">緑</div>
+          <div class="sopt sy" data-s="yellow" onclick="selS('yellow')">黄</div>
+          <div class="sopt sr" data-s="red" onclick="selS('red')">赤</div>
         </div>
       </div>
       <div class="id-fields">
@@ -183,23 +181,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
           <button class="sqb" onclick="setSym('気分不良')">気分不良</button>
         </div>
         <input class="finput" id="fsym" placeholder="その他、自由入力">
+        <label class="wait-check">
+          <input type="checkbox" id="fwait">
+          送迎待ち
+        </label>
       </div>
       <div id="time-field">
         <div class="lbl">入室時刻</div>
         <input class="finput" type="time" id="ftime">
         <div class="time-hint">自動入力されます。手動で変更も可能です。</div>
       </div>
-      <!-- 退室エリア（空き以外のとき表示） -->
-      <div class="checkout-area" id="checkout-area" style="display:none">
-        <div>
-          <div class="lbl">退室時刻</div>
-          <input class="finput" type="time" id="fout">
-          <div class="time-hint">デフォルトは現在時刻です。手動変更も可能です。</div>
-        </div>
-        <button class="checkout-btn" onclick="checkoutB()">退室する</button>
+      <div id="out-field">
+        <div class="lbl">退室時刻</div>
+        <input class="finput" type="time" id="fout">
+        <div class="time-hint">デフォルトは現在時刻です。手動変更も可能です。</div>
       </div>
     </div>
     <div class="mf">
+      <button class="checkout-btn" id="checkout-btn" onclick="checkoutB()">退室する</button>
       <button class="canbtn" onclick="closeM()">キャンセル</button>
       <button class="savebtn" onclick="saveB()">保存する</button>
     </div>
@@ -227,14 +226,13 @@ const db = getDatabase(app);
 
 // ─── 定数 ───────────────────────────────────────────
 const ROOMS = ['本部', '空海横', '茶道'];
-const SL = {empty:'空き', used:'使用中', overtime:'時間超過', waiting:'送迎待ち'};
-const BC = {empty:'empty', used:'used', overtime:'overtime', waiting:'waiting'};
-const BB = {empty:'bb-e', used:'bb-u', overtime:'bb-o', waiting:'bb-w'};
-const OT = 30 * 60 * 1000;
+const SL = {empty:'空き', green:'緑', yellow:'黄', red:'赤'};
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
 const KIND_LABEL  = {bed:'ベッド', chairIn:'室内椅子', chairOut:'室外椅子'};
 const KIND_KEYS   = ['beds','chairsIn','chairsOut'];
 const KIND_MAP    = {bed:'beds', chairIn:'chairsIn', chairOut:'chairsOut'};
+// 旧ステータス互換（Firebase上に旧データが残っている場合）
+const LEGACY = {used:'yellow', overtime:'red', waiting:'yellow'};
 
 // ─── ローカル状態 ────────────────────────────────────
 let rooms = ROOMS.map(() => ({
@@ -248,7 +246,11 @@ let editCtx = null;
 let curS = 'empty';
 
 function mkItem(localId) {
-  return {localId, patientId:null, status:'empty', name:'', sym:'', enteredAt:null};
+  return {localId, patientId:null, status:'empty', name:'', sym:'', waiting:false, enteredAt:null};
+}
+function normStatus(s) {
+  if (!s) return 'empty';
+  return LEGACY[s] || s;
 }
 
 // ─── Firebase ────────────────────────────────────────
@@ -263,7 +265,11 @@ function subscribeAll() {
         arr.forEach((item, idx) => {
           if (!item) return;
           if (!localArr[idx]) localArr[idx] = mkItem(idx+1);
-          Object.assign(localArr[idx], item, {localId: idx+1});
+          Object.assign(localArr[idx], item, {
+            localId: idx+1,
+            status: normStatus(item.status),
+            waiting: !!item.waiting,
+          });
         });
         if (arr.length < localArr.length) localArr.splice(arr.length);
         while (localArr.length < arr.length) localArr.push(mkItem(localArr.length+1));
@@ -273,33 +279,27 @@ function subscribeAll() {
   });
   onValue(ref(db, 'kyuugo/globalPatientId'), snap => {
     const v = snap.val();
-    // Firebase上の値は「発番済みの最大ID」。次の発番はトランザクションで+1される
     if (v && v + 1 > globalPatientId) globalPatientId = v + 1;
     setSyncStatus('online');
   });
 }
 
+function itemPayload(item) {
+  return {
+    localId: item.localId, patientId: item.patientId ?? null,
+    status: item.status, name: item.name, sym: item.sym,
+    waiting: !!item.waiting, enteredAt: item.enteredAt ?? null,
+  };
+}
 function pushItem(ri, kindKey, idx, item) {
-  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`), {
-    localId: item.localId, patientId: item.patientId ?? null,
-    status: item.status, name: item.name, sym: item.sym, enteredAt: item.enteredAt ?? null,
-  }).catch(e => console.warn(e));
+  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`), itemPayload(item)).catch(e => console.warn(e));
 }
-
 function pushCount(ri, kindKey) {
-  const data = rooms[ri][kindKey].map(item => ({
-    localId: item.localId, patientId: item.patientId ?? null,
-    status: item.status, name: item.name, sym: item.sym, enteredAt: item.enteredAt ?? null,
-  }));
-  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), data).catch(e => console.warn(e));
+  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), rooms[ri][kindKey].map(itemPayload)).catch(e => console.warn(e));
 }
-
 function pushGlobalPatientId() {
-  // フォールバック時のみ使用：発番済み最大ID（globalPatientId-1）を書き込む
   set(ref(db, 'kyuugo/globalPatientId'), globalPatientId - 1).catch(e => console.warn(e));
 }
-
-// 退室済みレコードをFirebaseに追記
 function pushDischarge(record) {
   push(ref(db, 'kyuugo/discharged'), record).catch(e => console.warn(e));
 }
@@ -314,7 +314,6 @@ onValue(ref(db, '.info/connected'), snap => {
     document.getElementById('offline-banner').classList.add('show');
   }
 });
-
 function setSyncStatus(s) {
   document.getElementById('sync-dot').className = 'dot ' + s;
   document.getElementById('sync-label').textContent =
@@ -322,10 +321,6 @@ function setSyncStatus(s) {
 }
 
 // ─── ヘルパー ─────────────────────────────────────────
-function effS(b) {
-  if (b.status==='used' && b.enteredAt && Date.now()-b.enteredAt >= OT) return 'overtime';
-  return b.status;
-}
 function nowHHMM() {
   const n = new Date();
   return n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0');
@@ -340,19 +335,17 @@ function tsToHHMM(ts) {
   const d = new Date(ts);
   return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
 }
-function minsStr(ms) {
-  return Math.floor(ms/60000) + '分';
-}
 function statsOf(arr) {
-  const c={empty:0,used:0,overtime:0,waiting:0};
-  arr.forEach(b => { c[effS(b)]++; });
+  const c={empty:0,green:0,yellow:0,red:0,waiting:0};
+  arr.forEach(b => { c[b.status] = (c[b.status]||0)+1; if(b.waiting) c.waiting++; });
   return c;
 }
 function statsHTML(c) {
   return `<div class="stats">
     <span class="st st-e">空 ${c.empty}</span>
-    <span class="st st-u">中 ${c.used}</span>
-    <span class="st st-o">超 ${c.overtime}</span>
+    <span class="st st-g">緑 ${c.green}</span>
+    <span class="st st-y">黄 ${c.yellow}</span>
+    <span class="st st-r">赤 ${c.red}</span>
     <span class="st st-w">待 ${c.waiting}</span>
   </div>`;
 }
@@ -381,18 +374,16 @@ function renderBedArea() {
 }
 
 function bedHTML(b) {
-  const s = effS(b);
   let tinfo = '';
   if (b.enteredAt) {
-    const el = Date.now()-b.enteredAt;
-    const m = Math.floor(el/60000);
+    const m = Math.floor((Date.now()-b.enteredAt)/60000);
     const ec = m>=30?'ed':m>=20?'ew':'';
     tinfo = `<div class="itime"><span>${tsToHHMM(b.enteredAt)}</span><span class="elapsed ${ec}">${m}分</span></div>`;
   }
-  const pid = b.patientId ? `<span class="id-chip id-pat">P-${b.patientId}</span>` : '';
-  return `<div class="item ${BC[s]}" onclick="openM('bed',${b.localId-1})">
-    <div class="irow"><span class="ibadge ${BB[s]}">${SL[s]}</span></div>
-    <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}</div>
+  const pid  = b.patientId ? `<span class="id-chip id-pat">P-${b.patientId}</span>` : '';
+  const wait = b.waiting ? `<span class="wait-chip">送迎待ち</span>` : '';
+  return `<div class="item ${b.status}" onclick="openM('bed',${b.localId-1})">
+    <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}${wait}</div>
     <div class="iname">${b.name||'空き'}</div>
     <div class="isym">${b.sym||''}</div>
     ${tinfo}
@@ -414,22 +405,20 @@ function renderChairArea() {
 }
 
 function chairHTML(b, kind) {
-  const s = effS(b);
   let tLine='', eLine='';
   if (b.enteredAt) {
-    const el = Date.now()-b.enteredAt;
-    const m = Math.floor(el/60000);
+    const m = Math.floor((Date.now()-b.enteredAt)/60000);
     const ec = m>=30?'ed':m>=20?'ew':'';
     tLine = `<div class="c-time">${tsToHHMM(b.enteredAt)}</div>`;
     eLine = `<div class="c-elapsed ${ec}">${m}分</div>`;
   }
-  const pid = b.patientId ? `<div class="c-pid">P-${b.patientId}</div>` : '';
+  const pid  = b.patientId ? `<div class="c-pid">P-${b.patientId}</div>` : '';
+  const wait = b.waiting ? `<div class="c-wait">送迎待ち</div>` : '';
   const prefix = KIND_PREFIX[kind];
-  return `<div class="chair-item ${BC[s]}" onclick="openM('${kind}',${b.localId-1})">
-    <span class="ibadge ${BB[s]}">${SL[s]}</span>
+  return `<div class="chair-item ${b.status}" onclick="openM('${kind}',${b.localId-1})">
     <div class="c-id">${prefix}${b.localId}</div>
     <div class="c-name">${b.name||'空き'}</div>
-    ${pid}${tLine}${eLine}
+    ${pid}${wait}${tLine}${eLine}
   </div>`;
 }
 
@@ -451,7 +440,7 @@ function openM(kind, idx) {
   const b = rooms[cur][key][idx];
   if (!b) return;
   editCtx = {kind, key, idx, roomIdx: cur};
-  curS = b.status==='empty' ? 'used' : b.status;
+  curS = b.status==='empty' ? 'green' : b.status;
   const prefix = KIND_PREFIX[kind];
   document.getElementById('mtitle').textContent = `${KIND_LABEL[kind]} ${ROOMS[cur]}-${prefix}${b.localId} 編集`;
   document.getElementById('id-lbl').textContent = (kind==='bed'?'ベッドID':'椅子ID')+'（部屋内固定）';
@@ -459,26 +448,29 @@ function openM(kind, idx) {
   document.getElementById('fpid').value = b.patientId ? 'P-'+b.patientId : '（入室時に自動発番）';
   document.getElementById('fname').value = b.name;
   document.getElementById('fsym').value = b.sym;
+  document.getElementById('fwait').checked = !!b.waiting;
   document.getElementById('ftime').value = b.enteredAt ? tsToHHMM(b.enteredAt) : nowHHMM();
   document.getElementById('fout').value = nowHHMM();
-  // 退室エリアは空き以外のときだけ表示
-  const isOccupied = curS !== 'empty';
-  document.getElementById('time-field').style.display = isOccupied ? 'block' : 'none';
-  document.getElementById('checkout-area').style.display = isOccupied ? 'flex' : 'none';
+  updateFieldVisibility();
   updSOpts();
   document.getElementById('ovl').classList.add('show');
 }
 window.openM = openM;
+
+function updateFieldVisibility() {
+  const isOccupied = curS !== 'empty';
+  document.getElementById('time-field').style.display = isOccupied ? 'block' : 'none';
+  document.getElementById('out-field').style.display = isOccupied ? 'block' : 'none';
+  document.getElementById('checkout-btn').style.display = isOccupied ? 'block' : 'none';
+}
 
 function closeM() { document.getElementById('ovl').classList.remove('show'); editCtx = null; }
 window.closeM = closeM;
 
 function selS(s) {
   curS = s; updSOpts();
-  const isOccupied = s !== 'empty';
-  document.getElementById('time-field').style.display = isOccupied ? 'block' : 'none';
-  document.getElementById('checkout-area').style.display = isOccupied ? 'flex' : 'none';
-  if (isOccupied && !document.getElementById('ftime').value)
+  updateFieldVisibility();
+  if (s !== 'empty' && !document.getElementById('ftime').value)
     document.getElementById('ftime').value = nowHHMM();
 }
 window.selS = selS;
@@ -486,7 +478,6 @@ window.selS = selS;
 function updSOpts() {
   document.querySelectorAll('.sopt').forEach(el => el.classList.toggle('sel', el.dataset.s===curS));
 }
-
 function setSym(s) { document.getElementById('fsym').value = s; }
 window.setSym = setSym;
 
@@ -497,11 +488,12 @@ function saveB() {
   const b = rooms[roomIdx][key][idx];
   if (!b) return;
   const wasEmpty = b.status==='empty';
-  b.status = curS;
-  b.name   = document.getElementById('fname').value.trim();
-  b.sym    = document.getElementById('fsym').value.trim();
+  b.status  = curS;
+  b.name    = document.getElementById('fname').value.trim();
+  b.sym     = document.getElementById('fsym').value.trim();
+  b.waiting = document.getElementById('fwait').checked;
   if (curS==='empty') {
-    b.enteredAt = null; b.patientId = null;
+    b.enteredAt = null; b.patientId = null; b.waiting = false;
     setSyncStatus('syncing');
     pushItem(roomIdx, key, idx, b);
     closeM(); renderAll();
@@ -510,14 +502,12 @@ function saveB() {
   b.enteredAt = parseTimeToTs(document.getElementById('ftime').value);
   setSyncStatus('syncing');
   if (wasEmpty && !b.patientId) {
-    // トランザクションでアトミックに発番（複数端末同時でも重複しない）
     runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1)
       .then(result => {
         if (result.committed) {
           b.patientId = result.snapshot.val();
           globalPatientId = b.patientId + 1;
         } else {
-          // 万一失敗した場合はローカル値でフォールバック
           b.patientId = globalPatientId++;
           pushGlobalPatientId();
         }
@@ -525,7 +515,6 @@ function saveB() {
         renderAll();
       })
       .catch(() => {
-        // オフライン等で失敗してもローカル発番で継続
         b.patientId = globalPatientId++;
         pushGlobalPatientId();
         pushItem(roomIdx, key, idx, b);
@@ -549,7 +538,6 @@ function checkoutB() {
   const inTs  = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
   const stayMs = (outTs && inTs) ? Math.max(0, outTs - inTs) : null;
 
-  // 退室済みレコードを保存
   const record = {
     patientId:  b.patientId ?? null,
     name:       document.getElementById('fname').value.trim() || b.name,
@@ -557,6 +545,7 @@ function checkoutB() {
     room:       ROOMS[roomIdx],
     slotId:     `${KIND_PREFIX[kind]}${b.localId}`,
     kind:       KIND_LABEL[kind],
+    triage:     SL[curS] || curS,
     enteredAt:  inTs ?? null,
     exitedAt:   outTs ?? null,
     stayMins:   stayMs !== null ? Math.floor(stayMs/60000) : null,
@@ -564,8 +553,7 @@ function checkoutB() {
   };
   pushDischarge(record);
 
-  // ベッド/椅子を空欄に
-  b.status = 'empty'; b.name = ''; b.sym = ''; b.enteredAt = null; b.patientId = null;
+  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null;
   setSyncStatus('syncing');
   pushItem(roomIdx, key, idx, b);
   closeM(); renderAll();
