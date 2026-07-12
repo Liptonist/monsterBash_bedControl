@@ -8,7 +8,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1a1a1a;font-size:14px;background:#f5f5f5}
 .hdr{background:#fff;border-bottom:1px solid #e0e0e0;padding:10px 14px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:10}
-.hdr-title{font-size:15px;font-weight:600;flex:1}
+.hdr-title{font-size:15px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:#9e9e9e;flex-shrink:0;transition:background .3s}
 .dot.online{background:#22c55e;animation:blink 2s infinite}
 .dot.syncing{background:#f59e0b;animation:blink .5s infinite}
@@ -16,11 +16,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 .sync-label{font-size:11px;color:#888}
 .clk{font-size:11px;color:#888;margin-left:4px}
-.tabs{display:flex;background:#fff;border-bottom:1px solid #e0e0e0;align-items:center}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e0e0e0;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tab{padding:9px 20px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#666;white-space:nowrap}
 .tab.on{color:#1a1a1a;border-bottom-color:#3b82f6;font-weight:500}
 .tab:hover:not(.on){color:#1a1a1a}
-.tab-spacer{flex:1}
+.tab-spacer{flex:1;min-width:8px}
 .tab-link{padding:8px 14px;font-size:12px;color:#6b7280;text-decoration:none;display:flex;align-items:center;gap:4px;border:1px solid #e0e0e0;border-radius:6px;margin-right:10px;background:#fff;white-space:nowrap}
 .tab-link:hover{background:#f5f5f5;color:#1a1a1a}
 .split{display:flex;gap:0;min-height:calc(100vh - 90px)}
@@ -118,6 +118,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 /* オフラインバナー */
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
 .offline-banner.show{display:block}
+@media (max-width:600px){
+  .hdr{padding:8px 10px;gap:6px}
+  .hdr-title{font-size:13px}
+  .sync-label{display:none}
+  .clk{margin-left:0}
+  .tab{padding:9px 14px}
+  .tab-link{margin-right:8px;padding:7px 10px;font-size:11px}
+  .split{flex-direction:column;min-height:auto}
+  .col{padding:10px}
+  .col-l{border-right:none;border-bottom:1px solid #e0e0e0}
+}
+@media (max-width:380px){
+  .chair-grid{grid-template-columns:repeat(3,1fr)}
+}
 </style>
 </head>
 <body>
