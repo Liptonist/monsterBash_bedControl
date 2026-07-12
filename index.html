@@ -153,9 +153,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="lbl">状態（トリアージ）</div>
         <div class="sopts">
           <div class="sopt se" data-s="empty" onclick="selS('empty')">空き</div>
-          <div class="sopt sg" data-s="green" onclick="selS('green')">緑</div>
-          <div class="sopt sy" data-s="yellow" onclick="selS('yellow')">黄</div>
-          <div class="sopt sr" data-s="red" onclick="selS('red')">赤</div>
+          <div class="sopt sg" data-s="green" onclick="selS('green')">軽傷</div>
+          <div class="sopt sy" data-s="yellow" onclick="selS('yellow')">中等症</div>
+          <div class="sopt sr" data-s="red" onclick="selS('red')">重症</div>
         </div>
       </div>
       <div class="id-fields">
@@ -226,7 +226,7 @@ const db = getDatabase(app);
 
 // ─── 定数 ───────────────────────────────────────────
 const ROOMS = ['本部', '空海横', '茶道'];
-const SL = {empty:'空き', green:'緑', yellow:'黄', red:'赤'};
+const SL = {empty:'空き', green:'軽傷', yellow:'中等症', red:'重症'};
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
 const KIND_LABEL  = {bed:'ベッド', chairIn:'室内椅子', chairOut:'室外椅子'};
 const KIND_KEYS   = ['beds','chairsIn','chairsOut'];
@@ -343,9 +343,9 @@ function statsOf(arr) {
 function statsHTML(c) {
   return `<div class="stats">
     <span class="st st-e">空 ${c.empty}</span>
-    <span class="st st-g">緑 ${c.green}</span>
-    <span class="st st-y">黄 ${c.yellow}</span>
-    <span class="st st-r">赤 ${c.red}</span>
+    <span class="st st-g">軽傷 ${c.green}</span>
+    <span class="st st-y">中等症 ${c.yellow}</span>
+    <span class="st st-r">重症 ${c.red}</span>
     <span class="st st-w">待 ${c.waiting}</span>
   </div>`;
 }
