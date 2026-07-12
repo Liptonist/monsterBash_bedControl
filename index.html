@@ -66,8 +66,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .iname{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
 .isym{font-size:10px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;min-height:13px}
 .itime{font-size:9px;color:#888;display:flex;justify-content:space-between;align-items:center;gap:3px}
-.iage{font-size:10px;color:#888;font-weight:400}
-.c-age{font-size:8px;color:#888;font-weight:400}
+.iage{font-size:10px;color:#888;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.c-age{font-size:8px;color:#888;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .elapsed{font-weight:500;white-space:nowrap}
 .ew{color:#d97706}
 .ed{color:#dc2626;font-weight:700}
@@ -425,7 +425,8 @@ function bedHTML(b) {
   const ag = ageGenderText(b);
   return `<div class="item ${b.status}" onclick="openM('bed',${b.localId-1})">
     <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}${wait}</div>
-    <div class="iname">${nameText}${ag ? ` <span class="iage">（${ag}）</span>` : ''}</div>
+    <div class="iname">${nameText}</div>
+    ${ag ? `<div class="iage">${ag}</div>` : ''}
     <div class="isym">${b.sym||''}</div>
     ${tinfo}
   </div>`;
@@ -461,7 +462,8 @@ function chairHTML(b, kind) {
   const ag = ageGenderText(b);
   return `<div class="chair-item ${b.status}" onclick="openM('${kind}',${b.localId-1})">
     <div class="c-id">${prefix}${b.localId}</div>
-    <div class="c-name">${nameText}${ag ? ` <span class="c-age">（${ag}）</span>` : ''}</div>
+    <div class="c-name">${nameText}</div>
+    ${ag ? `<div class="c-age">${ag}</div>` : ''}
     ${sym}${pid}${wait}${tLine}${eLine}
   </div>`;
 }
