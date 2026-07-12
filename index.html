@@ -72,6 +72,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .c-id{font-size:9px;font-weight:500;color:#555;margin-bottom:2px}
 .c-name{font-size:10px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c-pid{font-size:8px;color:#166534;margin-top:1px}
+.c-sym{font-size:8px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .c-wait{font-size:8px;color:#6b3a2a;font-weight:500;margin-top:1px}
 .c-time{font-size:8px;color:#888;margin-top:2px}
 .c-elapsed{font-size:8px;font-weight:500;margin-top:1px}
@@ -153,9 +154,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
         <div class="lbl">状態（トリアージ）</div>
         <div class="sopts">
           <div class="sopt se" data-s="empty" onclick="selS('empty')">空き</div>
-          <div class="sopt sg" data-s="green" onclick="selS('green')">緑</div>
-          <div class="sopt sy" data-s="yellow" onclick="selS('yellow')">黄</div>
-          <div class="sopt sr" data-s="red" onclick="selS('red')">赤</div>
+          <div class="sopt sg" data-s="green" onclick="selS('green')">軽症</div>
+          <div class="sopt sy" data-s="yellow" onclick="selS('yellow')">中等症</div>
+          <div class="sopt sr" data-s="red" onclick="selS('red')">重症</div>
         </div>
       </div>
       <div class="id-fields">
@@ -226,7 +227,7 @@ const db = getDatabase(app);
 
 // ─── 定数 ───────────────────────────────────────────
 const ROOMS = ['本部', '空海横', '茶道'];
-const SL = {empty:'空き', green:'緑', yellow:'黄', red:'赤'};
+const SL = {empty:'空き', green:'軽症', yellow:'中等症', red:'重症'};
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
 const KIND_LABEL  = {bed:'ベッド', chairIn:'室内椅子', chairOut:'室外椅子'};
 const KIND_KEYS   = ['beds','chairsIn','chairsOut'];
@@ -343,9 +344,9 @@ function statsOf(arr) {
 function statsHTML(c) {
   return `<div class="stats">
     <span class="st st-e">空 ${c.empty}</span>
-    <span class="st st-g">緑 ${c.green}</span>
-    <span class="st st-y">黄 ${c.yellow}</span>
-    <span class="st st-r">赤 ${c.red}</span>
+    <span class="st st-g">軽症 ${c.green}</span>
+    <span class="st st-y">中等症 ${c.yellow}</span>
+    <span class="st st-r">重症 ${c.red}</span>
     <span class="st st-w">待 ${c.waiting}</span>
   </div>`;
 }
@@ -413,12 +414,13 @@ function chairHTML(b, kind) {
     eLine = `<div class="c-elapsed ${ec}">${m}分</div>`;
   }
   const pid  = b.patientId ? `<div class="c-pid">P-${b.patientId}</div>` : '';
+  const sym  = b.sym ? `<div class="c-sym">${b.sym}</div>` : '';
   const wait = b.waiting ? `<div class="c-wait">送迎待ち</div>` : '';
   const prefix = KIND_PREFIX[kind];
   return `<div class="chair-item ${b.status}" onclick="openM('${kind}',${b.localId-1})">
     <div class="c-id">${prefix}${b.localId}</div>
     <div class="c-name">${b.name||'空き'}</div>
-    ${pid}${wait}${tLine}${eLine}
+    ${sym}${pid}${wait}${tLine}${eLine}
   </div>`;
 }
 
