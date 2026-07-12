@@ -38,6 +38,9 @@ tr:hover td{background:#fafafa}
 .stay.long{color:#dc2626}
 .del-btn{background:none;border:1px solid #fca5a5;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;color:#dc2626;line-height:1}
 .del-btn:hover{background:#fee2e2}
+.trash-section{margin-top:24px}
+.trash-heading{font-size:13px;font-weight:600;color:#888;margin-bottom:8px;padding-top:14px;border-top:1px solid #e0e0e0}
+.trash-wrap{opacity:.7}
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
 .offline-banner.show{display:block}
 </style>
@@ -71,6 +74,11 @@ tr:hover td{background:#fafafa}
     </select>
   </div>
   <div id="table-area"></div>
+
+  <div class="trash-section">
+    <div class="trash-heading">🗑️ ゴミ箱（<span id="trash-count">0</span>件）</div>
+    <div class="trash-wrap" id="trash-area"></div>
+  </div>
 </div>
 
 <script type="module">
@@ -115,6 +123,15 @@ onValue(ref(db, 'kyuugo/discharged'), snap => {
   applyFilter();
 });
 
+let trashRecords = [];
+onValue(ref(db, 'kyuugo/discharged_trash'), snap => {
+  const data = snap.val();
+  trashRecords = data
+    ? Object.entries(data).map(([k, v]) => ({...v, _key: k})).sort((a,b) => (b.trashedAt||0) - (a.trashedAt||0))
+    : [];
+  renderTrash();
+});
+
 function applyFilter() {
   const room = document.getElementById('filter-room').value;
   const kind = document.getElementById('filter-kind').value;
@@ -136,30 +153,40 @@ function render(records) {
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'茶道')}</div><div class="sum-lbl">茶道</div></div>
   `;
 
-  if (records.length === 0) {
-    document.getElementById('table-area').innerHTML =
-      `<div class="empty-msg">退室済みの記録はまだありません</div>`;
-    return;
-  }
+  document.getElementById('table-area').innerHTML =
+    records.length === 0
+      ? `<div class="empty-msg">退室済みの記録はまだありません</div>`
+      : tableHTML(records, true);
+}
 
-  const rows = records.map(r => {
-    const stay = r.stayMins != null ? r.stayMins : '—';
-    const stayClass = r.stayMins >= 30 ? 'stay long' : 'stay';
-    return `<tr>
-      <td>${r.patientId ? `<span class="pid">P-${r.patientId}</span>` : '—'}</td>
-      <td>${r.name || '—'}</td>
-      <td>${r.sym || '—'}</td>
-      <td><span class="room-badge">${r.room||'—'}</span></td>
-      <td><span class="slot-badge">${r.slotId||'—'}</span></td>
-      <td>${r.kind||'—'}</td>
-      <td>${tsToHHMM(r.enteredAt)}</td>
-      <td>${tsToHHMM(r.exitedAt)}</td>
-      <td class="${stayClass}">${stay !== '—' ? stay+'分' : '—'}</td>
-      <td><button class="del-btn" onclick="moveToTrash('${r._key}')" title="ゴミ箱に移動">🗑️</button></td>
-    </tr>`;
-  }).join('');
+function renderTrash() {
+  document.getElementById('trash-count').textContent = trashRecords.length;
+  document.getElementById('trash-area').innerHTML =
+    trashRecords.length === 0
+      ? `<div class="empty-msg">ゴミ箱は空です</div>`
+      : tableHTML(trashRecords, false);
+}
 
-  document.getElementById('table-area').innerHTML = `
+function recordRowHTML(r, showDelete) {
+  const stay = r.stayMins != null ? r.stayMins : '—';
+  const stayClass = r.stayMins >= 30 ? 'stay long' : 'stay';
+  return `<tr>
+    <td>${r.patientId ? `<span class="pid">P-${r.patientId}</span>` : '—'}</td>
+    <td>${r.name || '—'}</td>
+    <td>${r.sym || '—'}</td>
+    <td><span class="room-badge">${r.room||'—'}</span></td>
+    <td><span class="slot-badge">${r.slotId||'—'}</span></td>
+    <td>${r.kind||'—'}</td>
+    <td>${tsToHHMM(r.enteredAt)}</td>
+    <td>${tsToHHMM(r.exitedAt)}</td>
+    <td class="${stayClass}">${stay !== '—' ? stay+'分' : '—'}</td>
+    ${showDelete ? `<td><button class="del-btn" onclick="moveToTrash('${r._key}')" title="ゴミ箱に移動">🗑️</button></td>` : ''}
+  </tr>`;
+}
+
+function tableHTML(records, showDelete) {
+  const rows = records.map(r => recordRowHTML(r, showDelete)).join('');
+  return `
     <table>
       <thead>
         <tr>
@@ -172,7 +199,7 @@ function render(records) {
           <th>入室</th>
           <th>退室</th>
           <th>滞在時間</th>
-          <th>操作</th>
+          ${showDelete ? '<th>操作</th>' : ''}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
