@@ -209,7 +209,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, push }
+import { getDatabase, ref, onValue, set, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -273,7 +273,8 @@ function subscribeAll() {
   });
   onValue(ref(db, 'kyuugo/globalPatientId'), snap => {
     const v = snap.val();
-    if (v && v > globalPatientId) globalPatientId = v;
+    // Firebase上の値は「発番済みの最大ID」。次の発番はトランザクションで+1される
+    if (v && v + 1 > globalPatientId) globalPatientId = v + 1;
     setSyncStatus('online');
   });
 }
@@ -294,7 +295,8 @@ function pushCount(ri, kindKey) {
 }
 
 function pushGlobalPatientId() {
-  set(ref(db, 'kyuugo/globalPatientId'), globalPatientId).catch(e => console.warn(e));
+  // フォールバック時のみ使用：発番済み最大ID（globalPatientId-1）を書き込む
+  set(ref(db, 'kyuugo/globalPatientId'), globalPatientId - 1).catch(e => console.warn(e));
 }
 
 // 退室済みレコードをFirebaseに追記
@@ -500,12 +502,38 @@ function saveB() {
   b.sym    = document.getElementById('fsym').value.trim();
   if (curS==='empty') {
     b.enteredAt = null; b.patientId = null;
-  } else {
-    if (wasEmpty && !b.patientId) { b.patientId = globalPatientId++; pushGlobalPatientId(); }
-    b.enteredAt = parseTimeToTs(document.getElementById('ftime').value);
+    setSyncStatus('syncing');
+    pushItem(roomIdx, key, idx, b);
+    closeM(); renderAll();
+    return;
   }
+  b.enteredAt = parseTimeToTs(document.getElementById('ftime').value);
   setSyncStatus('syncing');
-  pushItem(roomIdx, key, idx, b);
+  if (wasEmpty && !b.patientId) {
+    // トランザクションでアトミックに発番（複数端末同時でも重複しない）
+    runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1)
+      .then(result => {
+        if (result.committed) {
+          b.patientId = result.snapshot.val();
+          globalPatientId = b.patientId + 1;
+        } else {
+          // 万一失敗した場合はローカル値でフォールバック
+          b.patientId = globalPatientId++;
+          pushGlobalPatientId();
+        }
+        pushItem(roomIdx, key, idx, b);
+        renderAll();
+      })
+      .catch(() => {
+        // オフライン等で失敗してもローカル発番で継続
+        b.patientId = globalPatientId++;
+        pushGlobalPatientId();
+        pushItem(roomIdx, key, idx, b);
+        renderAll();
+      });
+  } else {
+    pushItem(roomIdx, key, idx, b);
+  }
   closeM(); renderAll();
 }
 window.saveB = saveB;
