@@ -36,7 +36,7 @@ Legacy status values (`used`, `overtime`, `waiting`) are normalized to the curre
 
 - **Slot editing** (`openM` → `saveB`): clicking a bed/chair opens the modal (`#ovl`), pre-filled from the in-memory item. Saving assigns a new global `patientId` only when transitioning from empty (`wasEmpty && !b.patientId`), via the `globalPatientId` transaction.
 - **Checkout** (`checkoutB`): computes stay duration from entry/exit times, pushes a record to `kyuugo/discharged`, then resets the slot to empty.
-- **Move** (`moveB`): transfers an occupied slot's data to an empty slot (possibly in another room/kind), clearing the source — this is two separate `pushItem` calls, not a transaction, so a race could theoretically double-occupy a destination between the empty-check and the write.
+- **Move** (`moveB`): transfers an occupied slot's data to an empty slot (possibly in another room/kind), clearing the source. The destination write and source-clear write happen together via a single multi-path `update()` (`pushItems`), so they always commit atomically — but the empty-check that picks the destination still reads local state before that write, so a race could theoretically double-occupy a destination between the empty-check and the write.
 - **Resize** (`chgCnt`): grows/shrinks a room's bed/chair array (bounded 1–40) and rewrites the whole array via `pushCount`.
 
 Room/kind/status labels and prefixes (`ROOMS`, `KIND_PREFIX`, `KIND_LABEL`, `SL`) are the single source of truth for display strings — update these constants rather than hardcoding labels elsewhere.

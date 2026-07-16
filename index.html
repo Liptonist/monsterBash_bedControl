@@ -266,7 +266,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, push, runTransaction }
+import { getDatabase, ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -352,6 +352,13 @@ function itemPayload(item) {
 }
 function pushItem(ri, kindKey, idx, item) {
   set(ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`), itemPayload(item)).catch(e => console.warn(e));
+}
+function pushItems(entries) {
+  const updates = {};
+  entries.forEach(([ri, kindKey, idx, item]) => {
+    updates[`kyuugo/rooms/${ri}/${kindKey}/${idx}`] = itemPayload(item);
+  });
+  update(ref(db), updates).catch(e => console.warn(e));
 }
 function pushCount(ri, kindKey) {
   set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), rooms[ri][kindKey].map(itemPayload)).catch(e => console.warn(e));
@@ -704,8 +711,10 @@ function moveB() {
   b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
 
   setSyncStatus('syncing');
-  pushItem(destRoom, destKey, destIdx, dest);
-  pushItem(roomIdx, key, idx, b);
+  pushItems([
+    [destRoom, destKey, destIdx, dest],
+    [roomIdx, key, idx, b],
+  ]);
   closeM(); renderAll();
 }
 window.moveB = moveB;
