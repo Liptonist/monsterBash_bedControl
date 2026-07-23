@@ -67,6 +67,7 @@ tr:hover td{background:#fafafa}
       <option value="">全部屋</option>
       <option>本部</option>
       <option>空海横</option>
+      <option>サーカス</option>
       <option>茶道</option>
     </select>
     <select class="filter-select" id="filter-kind" onchange="applyFilter()">
@@ -153,6 +154,7 @@ function render(records) {
     <div class="sum-card"><div class="sum-num">${avgStay(allRecords)}</div><div class="sum-lbl">平均滞在(分)</div></div>
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'本部')}</div><div class="sum-lbl">本部</div></div>
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'空海横')}</div><div class="sum-lbl">空海横</div></div>
+    <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'サーカス')}</div><div class="sum-lbl">サーカス</div></div>
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'茶道')}</div><div class="sum-lbl">茶道</div></div>
   `;
 
