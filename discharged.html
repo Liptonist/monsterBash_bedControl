@@ -68,7 +68,7 @@ tr:hover td{background:#fafafa}
       <option>本部</option>
       <option>空海横</option>
       <option>サーカス</option>
-      <option>茶道</option>
+      <option>茶堂</option>
     </select>
     <select class="filter-select" id="filter-kind" onchange="applyFilter()">
       <option value="">全種別</option>
@@ -155,7 +155,7 @@ function render(records) {
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'本部')}</div><div class="sum-lbl">本部</div></div>
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'空海横')}</div><div class="sum-lbl">空海横</div></div>
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'サーカス')}</div><div class="sum-lbl">サーカス</div></div>
-    <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'茶道')}</div><div class="sum-lbl">茶道</div></div>
+    <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'茶堂')}</div><div class="sum-lbl">茶堂</div></div>
   `;
 
   document.getElementById('table-area').innerHTML =

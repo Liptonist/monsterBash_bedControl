@@ -23,7 +23,7 @@ Both pages talk live to the shared Firebase project defined inline in each file'
 
 All state lives under the `kyuugo/` root:
 
-- `kyuugo/rooms/{roomIndex}/{beds|chairsIn|chairsOut}` — array of slot objects for each of the 4 fixed rooms (`ROOMS = ['本部','空海横','サーカス','茶道']`, indexed 0-3). Each slot ("item") has: `localId` (1-based, fixed position within its room+kind), `patientId` (global, nullable), `status` (`empty|green|yellow|red`), `name`, `sym` (symptom), `waiting` (送迎待ち / pickup-wait flag), `enteredAt` (timestamp), `age`, `gender`.
+- `kyuugo/rooms/{roomIndex}/{beds|chairsIn|chairsOut}` — array of slot objects for each of the 4 fixed rooms (`ROOMS = ['本部','空海横','サーカス','茶堂']`, indexed 0-3). Each slot ("item") has: `localId` (1-based, fixed position within its room+kind), `patientId` (global, nullable), `status` (`empty|green|yellow|red`), `name`, `sym` (symptom), `waiting` (送迎待ち / pickup-wait flag), `enteredAt` (timestamp), `age`, `gender`.
 - `kyuugo/globalPatientId` — a counter for assigning festival-wide sequential patient IDs (`P-###`), incremented via `runTransaction` to avoid collisions across concurrent editors.
 - `kyuugo/discharged` — append-only-ish log of discharge records (pushed with `push()`), read by `discharged.html`.
 - `kyuugo/discharged_trash` — soft-deleted discharge records; moving to/from trash is a manual `set` + `remove` pair (not atomic).
