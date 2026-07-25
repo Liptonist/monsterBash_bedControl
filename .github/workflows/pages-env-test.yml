@@ -1,0 +1,18 @@
+name: Pages Environment Test (temporary)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - name: Hello
+        run: echo "hi, got a runner for the github-pages environment"
