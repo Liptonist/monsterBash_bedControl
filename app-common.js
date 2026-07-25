@@ -28,7 +28,16 @@ export const auth = getAuth(app);
 export const emailKey = e => (e || '').trim().toLowerCase().replace(/\./g, ',');
 
 // ログイン中のユーザー情報。requireAuth が通ったあとに中身が入る
+// name は表示用に解決済みの名前（許可リスト → Googleプロフィール → 未設定）
 export const me = {user: null, email: '', name: '', admin: false};
+
+export const NO_NAME = '(名前未設定)';
+
+// 表示名の決定順：許可リストの name → Googleアカウントのプロフィール名 → 未設定
+// メールアドレスは表示に使わない
+export function displayName(registeredName, googleName) {
+  return (registeredName || '').trim() || (googleName || '').trim() || NO_NAME;
+}
 
 // ─── ログイン画面（各ページに動的に差し込む） ─────────────
 const AUTH_CSS = `
@@ -137,13 +146,14 @@ export async function doLogout() {
   location.reload();   // 購読を確実に切るためリロードする
 }
 
-// 許可リストの値から利用可否・表示名・管理者かを取り出す
-export function readProfile(val, email) {
-  if (val === true) return {allowed: true, name: email, admin: false};
+// 許可リストの値から利用可否・登録名・管理者かを取り出す。
+// name は登録されたものだけを返す（未登録なら空文字）。表示名の解決は displayName で行う。
+export function readProfile(val) {
+  if (val === true) return {allowed: true, name: '', admin: false};
   if (val && typeof val === 'object') {
-    return {allowed: true, name: val.name || email, admin: val.admin === true};
+    return {allowed: true, name: (val.name || '').trim(), admin: val.admin === true};
   }
-  return {allowed: false, name: email, admin: false};
+  return {allowed: false, name: '', admin: false};
 }
 
 /**
@@ -165,7 +175,7 @@ export function requireAuth(title, onReady, adminOnly = false) {
     try {
       const snap = await get(ref(db, 'kyuugo/allowedUsers'));
       if (!snap.exists()) { showAuth('setup', {email: user.email}); return; }
-      prof = readProfile(snap.child(emailKey(user.email)).val(), user.email);
+      prof = readProfile(snap.child(emailKey(user.email)).val());
       if (!prof.allowed) { showAuth('denied', {email: user.email}); return; }
     } catch (e) {
       showAuth('error', {message: '許可リストを確認できませんでした: ' + (e.code || e.message || e)});
@@ -177,10 +187,13 @@ export function requireAuth(title, onReady, adminOnly = false) {
       return;
     }
 
-    me.user = user; me.email = user.email; me.name = prof.name; me.admin = prof.admin;
+    me.user = user;
+    me.email = user.email;
+    me.name = displayName(prof.name, user.displayName);
+    me.admin = prof.admin;
 
     const chip = document.getElementById('hdr-user');
-    if (chip) chip.textContent = prof.name + (prof.admin ? '（管理者）' : '');
+    if (chip) chip.textContent = me.name + (prof.admin ? '（管理者）' : '');
     const lo = document.getElementById('hdr-logout');
     if (lo) { lo.style.display = ''; lo.addEventListener('click', doLogout); }
 

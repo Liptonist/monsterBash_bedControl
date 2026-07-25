@@ -31,6 +31,7 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
 .badge{display:inline-block;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:600;white-space:nowrap}
 .badge-plain{background:#f5f5f5;color:#777;border-color:#e0e0e0}
 .self{font-size:11px;color:#999;margin-left:5px}
+.unset{color:#aaa;font-style:italic;font-size:12px}
 .empty{color:#999;font-size:13px;padding:16px 8px;text-align:center}
 .msg{border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px;display:none;word-break:break-all}
 .msg.err{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e;display:block}
@@ -51,7 +52,7 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
     <div class="card-h">ユーザーを追加</div>
     <div class="hint">
       Googleアカウントのメールアドレスを登録すると、そのアカウントでログインできるようになります。
-      管理者はこの画面でユーザーを追加・削除できます。
+      表示名は変更履歴に出る名前です。空欄にした場合はGoogleアカウントのプロフィール名が使われます。
     </div>
     <div class="msg" id="msg"></div>
     <div class="frm">
@@ -102,8 +103,11 @@ function render() {
 
   const rows = users.map(u => {
     const isSelf = u.email.toLowerCase() === me.email.toLowerCase();
+    const nameCell = u.name
+      ? esc(u.name)
+      : '<span class="unset">未設定（Googleの名前を使用）</span>';
     return `<tr>
-      <td>${esc(u.name)}${isSelf ? '<span class="self">(自分)</span>' : ''}</td>
+      <td>${nameCell}${isSelf ? '<span class="self">(自分)</span>' : ''}</td>
       <td>${esc(u.email)}</td>
       <td><span class="badge ${u.admin ? '' : 'badge-plain'}">${u.admin ? '管理者' : '一般'}</span></td>
       <td style="text-align:right">
@@ -124,9 +128,8 @@ function subscribe() {
   onValue(ref(db, 'kyuugo/allowedUsers'), snap => {
     const data = snap.val() || {};
     users = Object.entries(data).map(([key, val]) => {
-      const email = keyToEmail(key);
-      const p = readProfile(val, email);
-      return {key, email, name: p.name, admin: p.admin};
+      const p = readProfile(val);
+      return {key, email: keyToEmail(key), name: p.name, admin: p.admin};
     }).sort((a, b) => (b.admin - a.admin) || a.email.localeCompare(b.email));
     render();
   }, e => {
@@ -152,8 +155,11 @@ async function addUser() {
   const btn = $('btn-add');
   btn.disabled = true;
   try {
-    const payload = {name: name || email};
+    // 表示名を空にしたときはGoogleアカウントのプロフィール名が使われる
+    const payload = {};
+    if (name) payload.name = name;
     if (admin) payload.admin = true;
+    if (!name && !admin) payload.name = '';   // 空オブジェクトは保存できないため
     await set(ref(db, 'kyuugo/allowedUsers/' + key), payload);
     logChange('ユーザー追加', email, admin ? '管理者' : '一般');
     $('in-email').value = $('in-name').value = '';
