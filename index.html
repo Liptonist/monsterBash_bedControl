@@ -271,7 +271,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <script type="module">
 import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { db, me, requireAuth, logChange } from './app-common.js';
+import { db, me, requireAuth, logChange, trackWrite } from './app-common.js';
 
 // ─── 定数 ───────────────────────────────────────────
 const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
@@ -341,24 +341,31 @@ function itemPayload(item) {
     age: item.age ?? null, gender: item.gender || '',
   };
 }
+// 書き込みはすべて trackWrite を通し、サーバーに確定するまで
+// 「保存中」を表示して他ページへ移動しないようにする
 function pushItem(ri, kindKey, idx, item) {
-  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`), itemPayload(item)).catch(e => console.warn(e));
+  trackWrite(set(ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`), itemPayload(item)))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 function pushItems(entries) {
   const updates = {};
   entries.forEach(([ri, kindKey, idx, item]) => {
     updates[`kyuugo/rooms/${ri}/${kindKey}/${idx}`] = itemPayload(item);
   });
-  update(ref(db), updates).catch(e => console.warn(e));
+  trackWrite(update(ref(db), updates))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 function pushCount(ri, kindKey) {
-  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), rooms[ri][kindKey].map(itemPayload)).catch(e => console.warn(e));
+  trackWrite(set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), rooms[ri][kindKey].map(itemPayload)))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 function pushGlobalPatientId() {
-  set(ref(db, 'kyuugo/globalPatientId'), globalPatientId - 1).catch(e => console.warn(e));
+  trackWrite(set(ref(db, 'kyuugo/globalPatientId'), globalPatientId - 1))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 function pushDischarge(record) {
-  push(ref(db, 'kyuugo/discharged'), record).catch(e => console.warn(e));
+  trackWrite(push(ref(db, 'kyuugo/discharged'), record))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 
 // ─── 接続状態 ─────────────────────────────────────────
@@ -419,10 +426,10 @@ function renderTabs() {
   document.getElementById('tabs').innerHTML =
     ROOMS.map((n,i) => `<div class="tab${i===cur?' on':''}" onclick="sw(${i})">${n}</div>`).join('') +
     `<div class="tab-spacer"></div>` +
-    `<a class="tab-link" href="discharged.html" target="_blank">📋 退室済み一覧</a>` +
-    `<a class="tab-link" href="history.html" target="_blank">🕘 変更履歴</a>` +
+    `<a class="tab-link" href="discharged.html">📋 退室済み一覧</a>` +
+    `<a class="tab-link" href="history.html">🕘 変更履歴</a>` +
     // ユーザー管理は管理者にだけ出す
-    (me.admin ? `<a class="tab-link" href="users.html" target="_blank">👥 ユーザー管理</a>` : '');
+    (me.admin ? `<a class="tab-link" href="users.html">👥 ユーザー管理</a>` : '');
 }
 function sw(i) { cur=i; renderTabs(); renderAll(); }
 window.sw = sw;
@@ -624,7 +631,7 @@ function saveB() {
   b.enteredAt = parseTimeToTs(document.getElementById('ftime').value);
   setSyncStatus('syncing');
   if (wasEmpty && !b.patientId) {
-    runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1)
+    trackWrite(runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1))
       .then(result => {
         if (result.committed) {
           b.patientId = result.snapshot.val();

@@ -208,6 +208,139 @@ export function requireAuth(title, onReady, adminOnly = false) {
 // リダイレクト方式で戻ってきた場合の結果を拾う
 getRedirectResult(auth).catch(e => console.warn(e));
 
+// ─── 保存状態の表示と、保存完了までの画面遷移の抑止 ──────
+// Firebaseへの書き込みが確定するまでメッセージを出し、その間は
+// 別ページへ移動しないようにする（オフライン時は明示的に移動できる）。
+const SAVE_CSS = `
+.save-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:150;
+  display:none;align-items:center;gap:10px;max-width:calc(100% - 24px);
+  padding:10px 16px;border-radius:10px;font-size:13px;line-height:1.6;
+  box-shadow:0 4px 16px rgba(0,0,0,.18)}
+.save-toast.show{display:flex}
+.save-toast.saving{background:#fff8e1;border:1px solid #ffe0a3;color:#7a5b00}
+.save-toast.saved{background:#e8f5e9;border:1px solid #b7e0ba;color:#256029}
+.save-toast.error{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e}
+.save-toast .spin{width:13px;height:13px;border:2px solid #e0c98a;border-top-color:#7a5b00;
+  border-radius:50%;animation:save-spin .8s linear infinite;flex-shrink:0}
+@keyframes save-spin{to{transform:rotate(360deg)}}
+.save-toast .go{background:none;border:1px solid currentColor;border-radius:6px;
+  color:inherit;font-size:11.5px;padding:3px 9px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+`;
+
+let pending = 0;         // 確定待ちの書き込み数
+let saveError = null;    // 直近の失敗
+let navTarget = null;    // 保存待ちで保留している遷移先
+let toastEl = null;
+let savedTimer = null;
+
+function ensureToast() {
+  if (toastEl) return;
+  const st = document.createElement('style');
+  st.textContent = SAVE_CSS;
+  document.head.appendChild(st);
+  toastEl = document.createElement('div');
+  toastEl.className = 'save-toast';
+  document.body.appendChild(toastEl);
+}
+
+function renderToast(state) {
+  ensureToast();
+  const blocked = navTarget !== null;
+
+  if (state === 'saving') {
+    toastEl.className = 'save-toast show saving';
+    toastEl.innerHTML = '<span class="spin"></span><span></span>';
+    toastEl.lastChild.textContent = blocked
+      ? '保存中です。完了したら移動します...'
+      : '保存中です。反映をお待ちください...';
+    if (blocked) addEscape('未送信のまま移動');
+  } else if (state === 'error') {
+    toastEl.className = 'save-toast show error';
+    toastEl.innerHTML = '<span></span>';
+    toastEl.lastChild.textContent =
+      '保存できませんでした: ' + (saveError?.code || saveError?.message || saveError);
+    addEscape(blocked ? 'それでも移動' : '閉じる');
+  } else if (state === 'saved') {
+    toastEl.className = 'save-toast show saved';
+    toastEl.innerHTML = '<span></span>';
+    toastEl.lastChild.textContent = '保存しました';
+  } else {
+    toastEl.className = 'save-toast';
+  }
+}
+
+function addEscape(label) {
+  const b = document.createElement('button');
+  b.className = 'go';
+  b.textContent = label;
+  b.addEventListener('click', () => {
+    const t = navTarget;
+    navTarget = null;
+    saveError = null;
+    if (t) { window.removeEventListener('beforeunload', warnUnload); location.href = t; }
+    else renderToast(pending > 0 ? 'saving' : null);
+  });
+  toastEl.appendChild(b);
+}
+
+function updateSaveState() {
+  if (pending > 0) { renderToast('saving'); return; }
+
+  if (saveError) { renderToast('error'); return; }
+
+  // 保留していた遷移をここで実行する
+  if (navTarget) {
+    const t = navTarget;
+    navTarget = null;
+    window.removeEventListener('beforeunload', warnUnload);
+    location.href = t;
+    return;
+  }
+
+  renderToast('saved');
+  clearTimeout(savedTimer);
+  savedTimer = setTimeout(() => { if (pending === 0 && !saveError) renderToast(null); }, 1800);
+}
+
+function warnUnload(e) {
+  if (pending > 0) { e.preventDefault(); e.returnValue = ''; }
+}
+window.addEventListener('beforeunload', warnUnload);
+
+/**
+ * Firebaseへの書き込みを監視下に置く。確定するまで「保存中」を表示する。
+ * @param {Promise} promise set/update/push/runTransaction の戻り値
+ * @returns {Promise} 呼び出し側で続けて扱えるよう元のPromiseを返す
+ */
+export function trackWrite(promise) {
+  pending++;
+  saveError = null;
+  renderToast('saving');
+  return promise.then(
+    v => { pending--; updateSaveState(); return v; },
+    e => {
+      pending--; saveError = e; console.warn(e); updateSaveState();
+      throw e;
+    }
+  );
+}
+
+export const hasPendingWrites = () => pending > 0;
+
+// 同一タブ内のページ移動を、保存が確定するまで保留する。
+// タブ行は再描画で作り直されるため、documentへの委譲で受ける。
+document.addEventListener('click', e => {
+  const a = e.target.closest?.('a[href]');
+  if (!a || a.target === '_blank') return;
+  const href = a.getAttribute('href');
+  if (!href || /^(https?:|mailto:|tel:|#)/.test(href)) return;
+  if (pending === 0 && !saveError) return;
+
+  e.preventDefault();
+  navTarget = href;
+  renderToast(pending > 0 ? 'saving' : 'error');
+});
+
 /**
  * 変更履歴を kyuugo/auditLog に追記する。記録の失敗で本来の操作を止めない。
  * @param {string} action 操作の種類（例: 登録・編集、退室、移動）

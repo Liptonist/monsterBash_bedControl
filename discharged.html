@@ -89,7 +89,7 @@ tr:hover td{background:#fafafa}
 
 <script type="module">
 import { ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { db, requireAuth, logChange } from './app-common.js';
+import { db, requireAuth, logChange, trackWrite } from './app-common.js';
 
 let allRecords = [];
 
@@ -214,12 +214,13 @@ function moveToTrash(key) {
   const rec = allRecords.find(r => r._key === key);
   if (!rec) return;
   const { _key, ...data } = rec;
-  set(ref(db, 'kyuugo/discharged_trash/' + key), { ...data, trashedAt: Date.now() })
-    .then(() => {
-      logChange('ゴミ箱へ移動', recLabel(rec), recDetail(rec));
-      return remove(ref(db, 'kyuugo/discharged/' + key));
-    })
-    .catch(e => console.warn(e));
+  trackWrite(
+    set(ref(db, 'kyuugo/discharged_trash/' + key), { ...data, trashedAt: Date.now() })
+      .then(() => {
+        logChange('ゴミ箱へ移動', recLabel(rec), recDetail(rec));
+        return remove(ref(db, 'kyuugo/discharged/' + key));
+      })
+  ).catch(() => {});
 }
 window.moveToTrash = moveToTrash;
 
@@ -228,12 +229,13 @@ function restoreFromTrash(key) {
   const rec = trashRecords.find(r => r._key === key);
   if (!rec) return;
   const { _key, trashedAt, ...data } = rec;
-  set(ref(db, 'kyuugo/discharged/' + key), data)
-    .then(() => {
-      logChange('一覧に戻す', recLabel(rec), recDetail(rec));
-      return remove(ref(db, 'kyuugo/discharged_trash/' + key));
-    })
-    .catch(e => console.warn(e));
+  trackWrite(
+    set(ref(db, 'kyuugo/discharged/' + key), data)
+      .then(() => {
+        logChange('一覧に戻す', recLabel(rec), recDetail(rec));
+        return remove(ref(db, 'kyuugo/discharged_trash/' + key));
+      })
+  ).catch(() => {});
 }
 
 // 変更履歴用に退室記録を要約する
