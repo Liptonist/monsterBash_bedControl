@@ -25,6 +25,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .btn-danger{background:none;border:1px solid #f5c6c2;color:#b3261e;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer}
 .btn-danger:hover{background:#fdecea}
 .btn-danger:disabled{opacity:.4;cursor:default}
+.btn-reset{background:none;border:1px solid #d0d0d0;color:#555;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;margin-right:5px;white-space:nowrap}
+.btn-reset:hover{background:#f5f5f5}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;font-size:11.5px;color:#888;font-weight:600;padding:6px 8px;border-bottom:1px solid #e8e8e8;white-space:nowrap}
 td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:middle;word-break:break-all}
@@ -51,13 +53,17 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
   <div class="card">
     <div class="card-h">ユーザーを追加</div>
     <div class="hint">
-      Googleアカウントのメールアドレスを登録すると、そのアカウントでログインできるようになります。
-      表示名は変更履歴に出る名前です。空欄にした場合はGoogleアカウントのプロフィール名が使われます。
+      メールアドレスを登録すると、そのアカウントでログインできるようになります。
+      表示名は変更履歴に出る名前です。<br>
+      <b>Googleアカウントを持っている方</b>はパスワード欄を空欄にしてください（Googleでログインします）。<br>
+      <b>持っていない方</b>はパスワードを入力すると、ID（メールアドレス）とパスワードでログインできる
+      アカウントを同時に作成します。本人にIDとパスワードをお渡しください。
     </div>
     <div class="msg" id="msg"></div>
     <div class="frm">
       <input class="inp" id="in-email" type="email" placeholder="メールアドレス" autocomplete="off">
-      <input class="inp" id="in-name" type="text" placeholder="表示名（任意）" autocomplete="off">
+      <input class="inp" id="in-name" type="text" placeholder="表示名" autocomplete="off">
+      <input class="inp" id="in-pass" type="text" placeholder="パスワード（6文字以上・任意）" autocomplete="new-password">
       <label class="chk"><input type="checkbox" id="in-admin"> 管理者</label>
       <button class="btn" id="btn-add">追加</button>
     </div>
@@ -71,7 +77,8 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
 
 <script type="module">
 import { ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { db, me, emailKey, readProfile, requireAuth, logChange } from './app-common.js';
+import { db, me, emailKey, readProfile, requireAuth, logChange,
+         createPasswordAccount, sendResetEmail, authErrText } from './app-common.js';
 
 const $ = id => document.getElementById(id);
 
@@ -111,6 +118,7 @@ function render() {
       <td>${esc(u.email)}</td>
       <td><span class="badge ${u.admin ? '' : 'badge-plain'}">${u.admin ? '管理者' : '一般'}</span></td>
       <td style="text-align:right">
+        <button class="btn-reset" data-key="${esc(u.key)}">パスワード再設定</button>
         <button class="btn-danger" data-key="${esc(u.key)}" ${isSelf ? 'disabled title="自分自身は削除できません"' : ''}>削除</button>
       </td>
     </tr>`;
@@ -122,6 +130,8 @@ function render() {
 
   area.querySelectorAll('.btn-danger').forEach(b =>
     b.addEventListener('click', () => removeUser(b.dataset.key)));
+  area.querySelectorAll('.btn-reset').forEach(b =>
+    b.addEventListener('click', () => resetPassword(b.dataset.key)));
 }
 
 function subscribe() {
@@ -141,6 +151,7 @@ async function addUser() {
   clearMsg();
   const email = $('in-email').value.trim().toLowerCase();
   const name  = $('in-name').value.trim();
+  const pass  = $('in-pass').value;
   const admin = $('in-admin').checked;
 
   if (!email) { showMsg('メールアドレスを入力してください。', 'err'); return; }
@@ -151,24 +162,54 @@ async function addUser() {
   if (users.some(u => u.key === key)) {
     showMsg('このメールアドレスは既に登録されています。', 'err'); return;
   }
+  if (pass && pass.length < 6) {
+    showMsg('パスワードは6文字以上にしてください。', 'err'); return;
+  }
+  // ID/パスワードのアカウントにはGoogleのプロフィール名が無いため、
+  // 表示名を入れておかないと変更履歴が「(名前未設定)」になる
+  if (pass && !name) {
+    showMsg('パスワードを設定する場合は表示名も入力してください（履歴に表示されます）。', 'err');
+    return;
+  }
 
   const btn = $('btn-add');
   btn.disabled = true;
   try {
+    // 先にアカウントを作る。失敗したら許可リストにも登録しない
+    if (pass) await createPasswordAccount(email, pass);
+
     // 表示名を空にしたときはGoogleアカウントのプロフィール名が使われる
     const payload = {};
     if (name) payload.name = name;
     if (admin) payload.admin = true;
     if (!name && !admin) payload.name = '';   // 空オブジェクトは保存できないため
     await set(ref(db, 'kyuugo/allowedUsers/' + key), payload);
-    logChange('ユーザー追加', email, admin ? '管理者' : '一般');
-    $('in-email').value = $('in-name').value = '';
+
+    logChange('ユーザー追加', email,
+      [admin ? '管理者' : '一般', pass ? 'ID/パスワード' : 'Googleログイン'].join(' / '));
+    $('in-email').value = $('in-name').value = $('in-pass').value = '';
     $('in-admin').checked = false;
-    showMsg(email + ' を追加しました。', 'ok');
+    showMsg(pass
+      ? `${email} を追加しました。IDとパスワードを本人にお渡しください。`
+      : `${email} を追加しました。`, 'ok');
   } catch (e) {
-    showMsg('追加できませんでした: ' + (e.code || e.message), 'err');
+    showMsg('追加できませんでした: ' + authErrText(e), 'err');
   } finally {
     btn.disabled = false;
+  }
+}
+
+async function resetPassword(key) {
+  clearMsg();
+  const u = users.find(x => x.key === key);
+  if (!u) return;
+  if (!confirm(`${u.email} 宛にパスワード再設定メールを送ります。よろしいですか？`)) return;
+  try {
+    await sendResetEmail(u.email);
+    logChange('パスワード再設定メール送信', u.email, '');
+    showMsg(u.email + ' 宛に再設定メールを送りました。', 'ok');
+  } catch (e) {
+    showMsg('送信できませんでした: ' + authErrText(e), 'err');
   }
 }
 

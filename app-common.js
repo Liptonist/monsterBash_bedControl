@@ -4,11 +4,13 @@
 // 置換したもの（RTDBのキーに「.」を使えないため）。値は次の2形式を許容する。
 //   true                                  … 一般ユーザー（旧形式・互換のため残す）
 //   { name: "山田太郎", admin: true }      … 表示名つき。admin:true は管理者
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, push, get }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
-         getRedirectResult, onAuthStateChanged, signOut }
+         getRedirectResult, onAuthStateChanged, signOut,
+         signInWithEmailAndPassword, createUserWithEmailAndPassword,
+         sendPasswordResetEmail }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -56,6 +58,14 @@ const AUTH_CSS = `
 .hdr-user{font-size:11.5px;color:#888;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hdr-logout{background:none;border:1px solid #e0e0e0;border-radius:6px;color:#666;font-size:11.5px;padding:3px 8px;cursor:pointer;white-space:nowrap}
 .hdr-logout:hover{background:#f5f5f5}
+.auth-div{display:flex;align-items:center;gap:10px;margin:16px 0 12px;color:#bbb;font-size:11.5px}
+.auth-div::before,.auth-div::after{content:'';flex:1;height:1px;background:#e5e5e5}
+.auth-inp{width:100%;padding:9px 11px;border:1px solid #d0d0d0;border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:8px}
+.auth-inp:focus{outline:none;border-color:#3b82f6}
+.auth-btn2{width:100%;padding:10px 14px;border:none;border-radius:8px;background:#3b82f6;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.auth-btn2:hover{background:#2563eb}
+.auth-btn2:disabled{opacity:.5;cursor:default}
+.auth-ok{background:#e8f5e9;border:1px solid #b7e0ba;color:#256029;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.7;text-align:left;margin-bottom:16px}
 `;
 
 const AUTH_HTML = `
@@ -63,8 +73,16 @@ const AUTH_HTML = `
   <div class="auth-title" id="auth-h"></div>
   <div class="auth-sub" id="auth-sub">続けるにはGoogleアカウントでログインしてください。</div>
   <div class="auth-err" id="auth-err" style="display:none"></div>
+  <div class="auth-ok" id="auth-ok" style="display:none"></div>
   <div class="auth-note" id="auth-note" style="display:none"></div>
   <button class="auth-btn" id="auth-btn"><span>🔑</span><span>Googleでログイン</span></button>
+  <div id="auth-pw" style="display:none">
+    <div class="auth-div"><span>または</span></div>
+    <input class="auth-inp" id="auth-email" type="email" placeholder="メールアドレス" autocomplete="username">
+    <input class="auth-inp" id="auth-pass" type="password" placeholder="パスワード" autocomplete="current-password">
+    <button class="auth-btn2" id="auth-pw-btn">ログイン</button>
+    <button class="auth-sub-btn" id="auth-reset">パスワードを忘れた場合</button>
+  </div>
   <button class="auth-sub-btn" id="auth-logout" style="display:none">別のアカウントでログインする</button>
 </div>`;
 
@@ -83,6 +101,13 @@ function mountAuthUi(title) {
   ovl.querySelector('#auth-h').textContent = title;
   ovl.querySelector('#auth-btn').addEventListener('click', doLogin);
   ovl.querySelector('#auth-logout').addEventListener('click', doLogout);
+  ovl.querySelector('#auth-pw-btn').addEventListener('click', doPasswordLogin);
+  ovl.querySelector('#auth-reset').addEventListener('click', doPasswordReset);
+  // パスワード欄でEnterを押したらログインする
+  ovl.querySelector('#auth-pass').addEventListener('keydown',
+    e => { if (e.key === 'Enter') doPasswordLogin(); });
+  ovl.querySelector('#auth-email').addEventListener('keydown',
+    e => { if (e.key === 'Enter') ovl.querySelector('#auth-pass').focus(); });
 }
 
 // mode: 'login' | 'working' | 'denied' | 'setup' | 'error'
@@ -90,19 +115,25 @@ function showAuth(mode, opts = {}) {
   ovl.classList.remove('hide');
   const sub  = ovl.querySelector('#auth-sub');
   const err  = ovl.querySelector('#auth-err');
+  const okEl = ovl.querySelector('#auth-ok');
   const note = ovl.querySelector('#auth-note');
   const btn  = ovl.querySelector('#auth-btn');
   const out  = ovl.querySelector('#auth-logout');
+  const pw   = ovl.querySelector('#auth-pw');
 
-  err.style.display = note.style.display = 'none';
-  btn.style.display = out.style.display = 'none';
+  err.style.display = note.style.display = okEl.style.display = 'none';
+  btn.style.display = out.style.display = pw.style.display = 'none';
   btn.disabled = false;
+  ovl.querySelector('#auth-pw-btn').disabled = false;
 
   if (mode === 'working') {
     sub.textContent = opts.text || '確認中...';
   } else if (mode === 'login') {
-    sub.textContent = '続けるにはGoogleアカウントでログインしてください。';
+    sub.textContent = 'Googleアカウント、または配布されたIDとパスワードでログインしてください。';
     btn.style.display = '';
+    pw.style.display = '';
+    if (opts.ok) { okEl.style.display = ''; okEl.textContent = opts.ok; }
+    if (opts.message) { err.style.display = ''; err.textContent = opts.message; }
   } else if (mode === 'denied') {
     sub.textContent = 'このアカウントには利用権限がありません。';
     err.style.display = '';
@@ -123,8 +154,83 @@ function showAuth(mode, opts = {}) {
     err.style.display = '';
     err.textContent = opts.message || '不明なエラー';
     btn.style.display = '';
+    pw.style.display = '';
   }
 }
+
+// Firebaseのエラーコードを日本語にする
+function authErrText(e) {
+  const c = e?.code || '';
+  const map = {
+    'auth/invalid-credential':    'メールアドレスまたはパスワードが違います。',
+    'auth/wrong-password':        'メールアドレスまたはパスワードが違います。',
+    'auth/user-not-found':        'メールアドレスまたはパスワードが違います。',
+    'auth/invalid-email':         'メールアドレスの形式が正しくありません。',
+    'auth/user-disabled':         'このアカウントは無効化されています。',
+    'auth/too-many-requests':     '試行回数が多すぎます。しばらく待ってからお試しください。',
+    'auth/network-request-failed':'通信に失敗しました。電波状況をご確認ください。',
+    'auth/email-already-in-use':  'このメールアドレスのアカウントは既に存在します。',
+    'auth/weak-password':         'パスワードは6文字以上にしてください。',
+    'auth/operation-not-allowed': 'ID・パスワードでのログインがFirebaseで有効化されていません。',
+  };
+  return map[c] || (c ? c + ' ' + (e.message || '') : String(e));
+}
+
+async function doPasswordLogin() {
+  const email = ovl.querySelector('#auth-email').value.trim();
+  const pass  = ovl.querySelector('#auth-pass').value;
+  if (!email || !pass) {
+    showAuth('login', {message: 'メールアドレスとパスワードを入力してください。'});
+    ovl.querySelector('#auth-email').value = email;
+    return;
+  }
+  const btn = ovl.querySelector('#auth-pw-btn');
+  btn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    console.warn(e);
+    showAuth('login', {message: authErrText(e)});
+    ovl.querySelector('#auth-email').value = email;
+  }
+}
+
+async function doPasswordReset() {
+  const email = ovl.querySelector('#auth-email').value.trim();
+  if (!email) {
+    showAuth('login', {message: 'メールアドレスを入力してから押してください。'});
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showAuth('login', {ok: email + ' 宛にパスワード再設定メールを送りました。'});
+  } catch (e) {
+    console.warn(e);
+    showAuth('login', {message: authErrText(e)});
+  }
+  ovl.querySelector('#auth-email').value = email;
+}
+
+/**
+ * ID/パスワードのアカウントを作る（管理者がユーザー管理画面から使う）。
+ * 別のFirebaseアプリを一時的に作って実行するため、操作中の管理者は
+ * ログアウトされない。
+ */
+export async function createPasswordAccount(email, password) {
+  const sub = initializeApp(firebaseConfig, 'mk-' + Date.now());
+  const subAuth = getAuth(sub);
+  try {
+    await createUserWithEmailAndPassword(subAuth, email, password);
+  } finally {
+    await signOut(subAuth).catch(() => {});
+    await deleteApp(sub).catch(() => {});
+  }
+}
+
+// パスワード再設定メールを送る（ユーザー管理画面から使う）
+export const sendResetEmail = email => sendPasswordResetEmail(auth, email);
+
+export { authErrText };
 
 async function doLogin() {
   ovl.querySelector('#auth-btn').disabled = true;
