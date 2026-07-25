@@ -281,12 +281,19 @@ export async function doLogout() {
 
 // 許可リストの値から利用可否・登録名・管理者かを取り出す。
 // name は登録されたものだけを返す（未登録なら空文字）。表示名の解決は displayName で行う。
+// authType: 'password' なら ID/パスワードでログインするアカウント。
+// 未設定は Google ログイン扱い（パスワード付きの作成時に必ず記録するため）
 export function readProfile(val) {
-  if (val === true) return {allowed: true, name: '', admin: false};
+  if (val === true) return {allowed: true, name: '', admin: false, authType: ''};
   if (val && typeof val === 'object') {
-    return {allowed: true, name: (val.name || '').trim(), admin: val.admin === true};
+    return {
+      allowed: true,
+      name: (val.name || '').trim(),
+      admin: val.admin === true,
+      authType: val.authType || '',
+    };
   }
-  return {allowed: false, name: '', admin: false};
+  return {allowed: false, name: '', admin: false, authType: ''};
 }
 
 /**

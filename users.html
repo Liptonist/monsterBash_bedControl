@@ -25,13 +25,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .btn-danger{background:none;border:1px solid #f5c6c2;color:#b3261e;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer}
 .btn-danger:hover{background:#fdecea}
 .btn-danger:disabled{opacity:.4;cursor:default}
-.btn-reset,.btn-pw{background:none;border:1px solid #d0d0d0;color:#555;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;margin-right:5px;white-space:nowrap}
-.btn-reset:hover,.btn-pw:hover{background:#f5f5f5}
-table{width:100%;border-collapse:collapse}
+.btn-sm{background:none;border:1px solid #d0d0d0;color:#555;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap}
+.btn-sm+.btn-sm{margin-left:5px}
+.btn-sm:hover{background:#f5f5f5}
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:640px}
+.c-pw{white-space:nowrap}
 th{text-align:left;font-size:11.5px;color:#888;font-weight:600;padding:6px 8px;border-bottom:1px solid #e8e8e8;white-space:nowrap}
 td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:middle;word-break:break-all}
 .badge{display:inline-block;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:600;white-space:nowrap}
 .badge-plain{background:#f5f5f5;color:#777;border-color:#e0e0e0}
+.badge-google{background:#fff;color:#5f6368;border-color:#dadce0}
+.badge-pw{background:#fff8e1;color:#7a5b00;border-color:#ffe0a3}
 .self{font-size:11px;color:#999;margin-left:5px}
 .unset{color:#aaa;font-style:italic;font-size:12px}
 .empty{color:#999;font-size:13px;padding:16px 8px;text-align:center}
@@ -146,21 +151,28 @@ function render() {
     const nameCell = u.name
       ? esc(u.name)
       : '<span class="unset">未設定（Googleの名前を使用）</span>';
+    const isPw = u.authType === 'password';
     return `<tr>
       <td>${nameCell}${isSelf ? '<span class="self">(自分)</span>' : ''}</td>
       <td>${esc(u.email)}</td>
       <td><span class="badge ${u.admin ? '' : 'badge-plain'}">${u.admin ? '管理者' : '一般'}</span></td>
+      <td><span class="badge ${isPw ? 'badge-pw' : 'badge-google'}">${isPw ? '🔑 ID/パスワード' : 'Google'}</span></td>
+      <td class="c-pw">
+        <button class="btn-sm btn-pw" data-key="${esc(u.key)}">変更</button>
+        <button class="btn-sm btn-reset" data-key="${esc(u.key)}">再設定</button>
+      </td>
       <td style="text-align:right">
-        <button class="btn-pw" data-key="${esc(u.key)}">パスワード変更</button>
-        <button class="btn-reset" data-key="${esc(u.key)}">パスワード再設定</button>
         <button class="btn-danger" data-key="${esc(u.key)}" ${isSelf ? 'disabled title="自分自身は削除できません"' : ''}>削除</button>
       </td>
     </tr>`;
   }).join('');
 
-  area.innerHTML = `<table>
-    <thead><tr><th>表示名</th><th>メールアドレス</th><th>権限</th><th></th></tr></thead>
-    <tbody>${rows}</tbody></table>`;
+  area.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>表示名</th><th>メールアドレス</th><th>権限</th>
+      <th>ログイン方法</th><th>パスワード</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 
   area.querySelectorAll('.btn-danger').forEach(b =>
     b.addEventListener('click', () => removeUser(b.dataset.key)));
@@ -175,7 +187,7 @@ function subscribe() {
     const data = snap.val() || {};
     users = Object.entries(data).map(([key, val]) => {
       const p = readProfile(val);
-      return {key, email: keyToEmail(key), name: p.name, admin: p.admin};
+      return {key, email: keyToEmail(key), name: p.name, admin: p.admin, authType: p.authType};
     }).sort((a, b) => (b.admin - a.admin) || a.email.localeCompare(b.email));
     render();
   }, e => {
@@ -234,7 +246,9 @@ async function addUser() {
     const payload = {};
     if (name) payload.name = name;
     if (admin) payload.admin = true;
-    if (!name && !admin) payload.name = '';   // 空オブジェクトは保存できないため
+    // ログイン方法を一覧に出すために記録する
+    if (pass) payload.authType = 'password';
+    if (!name && !admin && !pass) payload.name = '';   // 空オブジェクトは保存できないため
     await set(ref(db, 'kyuugo/allowedUsers/' + key), payload);
 
     logChange('ユーザー追加', email,
@@ -294,6 +308,11 @@ async function savePassword() {
   btn.disabled = true;
   try {
     await changePasswordAs(u.email, cur, nw);
+    // 変更できた＝パスワードを持つアカウントなので、記録が無ければ補う
+    if (u.authType !== 'password') {
+      await set(ref(db, 'kyuugo/allowedUsers/' + u.key + '/authType'), 'password')
+        .catch(e => console.warn('authType:', e));
+    }
     logChange('パスワード変更', u.email, '');   // パスワードそのものは記録しない
     closePwModal();
     showMsg(`${u.email} のパスワードを変更しました。新しいパスワードを本人にお渡しください。`, 'ok');
