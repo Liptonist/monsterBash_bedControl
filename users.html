@@ -25,8 +25,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .btn-danger{background:none;border:1px solid #f5c6c2;color:#b3261e;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer}
 .btn-danger:hover{background:#fdecea}
 .btn-danger:disabled{opacity:.4;cursor:default}
-.btn-reset{background:none;border:1px solid #d0d0d0;color:#555;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;margin-right:5px;white-space:nowrap}
-.btn-reset:hover{background:#f5f5f5}
+.btn-reset,.btn-pw{background:none;border:1px solid #d0d0d0;color:#555;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;margin-right:5px;white-space:nowrap}
+.btn-reset:hover,.btn-pw:hover{background:#f5f5f5}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;font-size:11.5px;color:#888;font-weight:600;padding:6px 8px;border-bottom:1px solid #e8e8e8;white-space:nowrap}
 td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:middle;word-break:break-all}
@@ -38,6 +38,15 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
 .msg{border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px;display:none;word-break:break-all}
 .msg.err{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e;display:block}
 .msg.ok{background:#e8f5e9;border:1px solid #b7e0ba;color:#256029;display:block}
+.pw-ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:120;align-items:center;justify-content:center;padding:20px 12px;overflow-y:auto}
+.pw-ovl.show{display:flex}
+.pw-card{background:#fff;border-radius:14px;border:1px solid #e0e0e0;width:360px;max-width:100%;margin:auto;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.pw-h{font-size:15px;font-weight:600;margin-bottom:6px}
+.pw-target{font-size:12.5px;color:#666;margin-bottom:14px;word-break:break-all}
+.pw-hint{font-size:11.5px;color:#888;line-height:1.7;margin-bottom:12px}
+.pw-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.btn-plain{background:none;border:1px solid #d0d0d0;border-radius:8px;color:#555;font-size:13px;padding:9px 16px;cursor:pointer}
+.btn-plain:hover{background:#f5f5f5}
 </style>
 </head>
 <body>
@@ -79,10 +88,30 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
   </div>
 </div>
 
+<!-- パスワード変更 -->
+<div class="pw-ovl" id="pw-ovl">
+  <div class="pw-card">
+    <div class="pw-h">パスワードの変更</div>
+    <div class="pw-target" id="pw-target"></div>
+    <div class="pw-hint">
+      配布済みのパスワードを別のものに変更します。<b>現在のパスワードが必要です。</b><br>
+      分からない場合はこの画面を閉じて「パスワード再設定」から本人にメールを送ってください。
+    </div>
+    <div class="msg" id="pw-msg"></div>
+    <input class="inp" id="pw-cur" type="text" placeholder="現在のパスワード" autocomplete="off" style="width:100%;margin-bottom:8px">
+    <input class="inp" id="pw-new" type="text" placeholder="新しいパスワード（6文字以上）" autocomplete="off" style="width:100%">
+    <div class="pw-actions">
+      <button class="btn-plain" id="pw-cancel">キャンセル</button>
+      <button class="btn" id="pw-save">変更する</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, emailKey, readProfile, requireAuth, logChange,
-         createPasswordAccount, sendResetEmail, authErrText } from './app-common.js';
+         createPasswordAccount, changePasswordAs, sendResetEmail,
+         authErrText } from './app-common.js';
 
 const $ = id => document.getElementById(id);
 
@@ -122,6 +151,7 @@ function render() {
       <td>${esc(u.email)}</td>
       <td><span class="badge ${u.admin ? '' : 'badge-plain'}">${u.admin ? '管理者' : '一般'}</span></td>
       <td style="text-align:right">
+        <button class="btn-pw" data-key="${esc(u.key)}">パスワード変更</button>
         <button class="btn-reset" data-key="${esc(u.key)}">パスワード再設定</button>
         <button class="btn-danger" data-key="${esc(u.key)}" ${isSelf ? 'disabled title="自分自身は削除できません"' : ''}>削除</button>
       </td>
@@ -136,6 +166,8 @@ function render() {
     b.addEventListener('click', () => removeUser(b.dataset.key)));
   area.querySelectorAll('.btn-reset').forEach(b =>
     b.addEventListener('click', () => resetPassword(b.dataset.key)));
+  area.querySelectorAll('.btn-pw').forEach(b =>
+    b.addEventListener('click', () => openPwModal(b.dataset.key)));
 }
 
 function subscribe() {
@@ -222,6 +254,67 @@ async function addUser() {
     btn.disabled = false;
   }
 }
+
+// ─── パスワード変更 ─────────────────────────────────
+let pwTargetKey = null;
+
+function showPwMsg(text, kind) {
+  const el = $('pw-msg');
+  el.className = 'msg ' + kind;
+  el.textContent = text;
+}
+
+function openPwModal(key) {
+  const u = users.find(x => x.key === key);
+  if (!u) return;
+  pwTargetKey = key;
+  $('pw-target').textContent = u.email;
+  $('pw-msg').className = 'msg';
+  $('pw-cur').value = $('pw-new').value = '';
+  $('pw-ovl').classList.add('show');
+  $('pw-cur').focus();
+}
+
+function closePwModal() {
+  $('pw-ovl').classList.remove('show');
+  pwTargetKey = null;
+}
+
+async function savePassword() {
+  const u = users.find(x => x.key === pwTargetKey);
+  if (!u) return;
+  const cur = $('pw-cur').value;
+  const nw  = $('pw-new').value;
+
+  if (!cur || !nw) { showPwMsg('現在のパスワードと新しいパスワードを入力してください。', 'err'); return; }
+  if (nw.length < 6) { showPwMsg('新しいパスワードは6文字以上にしてください。', 'err'); return; }
+  if (cur === nw)   { showPwMsg('現在のパスワードと同じです。', 'err'); return; }
+
+  const btn = $('pw-save');
+  btn.disabled = true;
+  try {
+    await changePasswordAs(u.email, cur, nw);
+    logChange('パスワード変更', u.email, '');   // パスワードそのものは記録しない
+    closePwModal();
+    showMsg(`${u.email} のパスワードを変更しました。新しいパスワードを本人にお渡しください。`, 'ok');
+  } catch (e) {
+    console.warn('changePasswordAs:', e);
+    const c = e?.code || '';
+    if (c === 'auth/invalid-credential' || c === 'auth/wrong-password' || c === 'auth/user-not-found') {
+      showPwMsg('現在のパスワードが違うか、このアカウントにはパスワードが設定されていません'
+        + '（Googleログイン専用の可能性があります）。', 'err');
+    } else {
+      showPwMsg('変更できませんでした: ' + authErrText(e), 'err');
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('pw-cancel').addEventListener('click', closePwModal);
+$('pw-save').addEventListener('click', savePassword);
+$('pw-ovl').addEventListener('click', e => { if (e.target.id === 'pw-ovl') closePwModal(); });
+$('pw-new').addEventListener('keydown', e => { if (e.key === 'Enter') savePassword(); });
 
 async function resetPassword(key) {
   clearMsg();

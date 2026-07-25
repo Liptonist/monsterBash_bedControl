@@ -10,7 +10,7 @@ import { getDatabase, ref, push, get }
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
          getRedirectResult, onAuthStateChanged, signOut,
          signInWithEmailAndPassword, createUserWithEmailAndPassword,
-         sendPasswordResetEmail }
+         sendPasswordResetEmail, updatePassword }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -230,6 +230,24 @@ export async function createPasswordAccount(email, password) {
   const subAuth = getAuth(sub);
   try {
     await createUserWithEmailAndPassword(subAuth, email, password);
+  } finally {
+    await signOut(subAuth).catch(() => {});
+    await deleteApp(sub).catch(() => {});
+  }
+}
+
+/**
+ * 管理者が配布済みのパスワードを別のものに変更する。
+ * クライアントSDKでは他人のパスワードを直接設定できないため、
+ * 一時的な別アプリでそのアカウントとしてログインし直して変更する。
+ * 現在のパスワードが必要。分からない場合は再設定メールを使う。
+ */
+export async function changePasswordAs(email, currentPassword, newPassword) {
+  const sub = initializeApp(firebaseConfig, 'pw-' + Date.now());
+  const subAuth = getAuth(sub);
+  try {
+    const cred = await signInWithEmailAndPassword(subAuth, email, currentPassword);
+    await updatePassword(cred.user, newPassword);
   } finally {
     await signOut(subAuth).catch(() => {});
     await deleteApp(sub).catch(() => {});
