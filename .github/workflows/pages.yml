@@ -1,0 +1,59 @@
+name: Deploy Pages (main + preview)
+
+on:
+  push:
+    branches:
+      - main
+      - claude/feature-branch-html-publish-i9vvl7
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main (site root)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+
+      - name: Checkout feature branch (preview)
+        uses: actions/checkout@v4
+        with:
+          ref: claude/feature-branch-html-publish-i9vvl7
+          path: preview
+
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp -r main/. site/
+          rm -rf site/.git site/.github
+
+          mkdir -p site/preview
+          cp -r preview/. site/preview/
+          rm -rf site/preview/.git site/preview/.github
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
