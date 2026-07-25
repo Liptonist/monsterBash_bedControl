@@ -158,9 +158,13 @@ function showAuth(mode, opts = {}) {
   }
 }
 
-// Firebaseのエラーコードを日本語にする
+// Firebaseのエラーコードを日本語にする。原因を追えるよう元のコードも併記する
 function authErrText(e) {
   const c = e?.code || '';
+  return jaAuthMessage(c, e) + (c ? `（${c}）` : '');
+}
+
+function jaAuthMessage(c, e) {
   const map = {
     'auth/invalid-credential':    'メールアドレスまたはパスワードが違います。',
     'auth/wrong-password':        'メールアドレスまたはパスワードが違います。',
@@ -171,13 +175,18 @@ function authErrText(e) {
     'auth/network-request-failed':'通信に失敗しました。電波状況をご確認ください。',
     'auth/email-already-in-use':  'このメールアドレスのアカウントは既に存在します。',
     'auth/weak-password':         'パスワードは6文字以上にしてください。',
-    'auth/operation-not-allowed': 'ID・パスワードでのログインがFirebaseで有効化されていません。',
+    'auth/operation-not-allowed': 'Firebaseコンソールで「メール/パスワード」を有効化してください。',
+    'PERMISSION_DENIED':          'データベースの権限がありません（管理者以外は登録できません）。',
   };
-  return map[c] || (c ? c + ' ' + (e.message || '') : String(e));
+  if (map[c]) return map[c];
+  // Realtime Database 側の権限エラーはコード名が異なる
+  if (/permission_denied/i.test(e?.message || '')) return map['PERMISSION_DENIED'];
+  return e?.message || String(e);
 }
 
 async function doPasswordLogin() {
-  const email = ovl.querySelector('#auth-email').value.trim();
+  // 登録時は小文字で作るため、ログイン時もそろえる
+  const email = ovl.querySelector('#auth-email').value.trim().toLowerCase();
   const pass  = ovl.querySelector('#auth-pass').value;
   if (!email || !pass) {
     showAuth('login', {message: 'メールアドレスとパスワードを入力してください。'});
@@ -196,7 +205,7 @@ async function doPasswordLogin() {
 }
 
 async function doPasswordReset() {
-  const email = ovl.querySelector('#auth-email').value.trim();
+  const email = ovl.querySelector('#auth-email').value.trim().toLowerCase();
   if (!email) {
     showAuth('login', {message: 'メールアドレスを入力してから押してください。'});
     return;

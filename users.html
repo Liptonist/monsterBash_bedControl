@@ -57,7 +57,11 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
       表示名は変更履歴に出る名前です。<br>
       <b>Googleアカウントを持っている方</b>はパスワード欄を空欄にしてください（Googleでログインします）。<br>
       <b>持っていない方</b>はパスワードを入力すると、ID（メールアドレス）とパスワードでログインできる
-      アカウントを同時に作成します。本人にIDとパスワードをお渡しください。
+      アカウントを同時に作成します。本人にIDとパスワードをお渡しください。<br>
+      ※ パスワードはFirebaseのAuthenticationで暗号化して管理されます。Realtime Databaseには保存されません（保存すると危険なため）。
+      作成したアカウントはFirebaseコンソールの <b>Authentication → Users</b> で確認できます。<br>
+      ※ この機能を使うには、Firebaseコンソールの <b>Authentication → Sign-in method</b> で
+      <b>「メール/パスワード」を有効化</b>しておく必要があります。
     </div>
     <div class="msg" id="msg"></div>
     <div class="frm">
@@ -174,10 +178,26 @@ async function addUser() {
 
   const btn = $('btn-add');
   btn.disabled = true;
-  try {
-    // 先にアカウントを作る。失敗したら許可リストにも登録しない
-    if (pass) await createPasswordAccount(email, pass);
 
+  // 手順ごとに分けて、どこで失敗したか分かるようにする
+  if (pass) {
+    try {
+      await createPasswordAccount(email, pass);
+    } catch (e) {
+      console.warn('createPasswordAccount:', e);
+      btn.disabled = false;
+      if (e?.code === 'auth/email-already-in-use') {
+        showMsg(`ログイン用アカウントは既に存在します（${email}）。`
+          + 'パスワードを変更したい場合は、一覧の「パスワード再設定」から本人に'
+          + 'メールを送ってください。許可リストへの登録だけを行う場合はパスワード欄を空にしてください。', 'err');
+      } else {
+        showMsg('ログイン用アカウントを作成できませんでした: ' + authErrText(e), 'err');
+      }
+      return;   // アカウントが作れていないので許可リストにも登録しない
+    }
+  }
+
+  try {
     // 表示名を空にしたときはGoogleアカウントのプロフィール名が使われる
     const payload = {};
     if (name) payload.name = name;
@@ -190,10 +210,14 @@ async function addUser() {
     $('in-email').value = $('in-name').value = $('in-pass').value = '';
     $('in-admin').checked = false;
     showMsg(pass
-      ? `${email} を追加しました。IDとパスワードを本人にお渡しください。`
+      ? `${email} を追加しました。このメールアドレスとパスワードでログインできます。`
+        + '（パスワードはFirebaseのAuthenticationで管理され、データベースには保存されません）'
       : `${email} を追加しました。`, 'ok');
   } catch (e) {
-    showMsg('追加できませんでした: ' + authErrText(e), 'err');
+    console.warn('allowedUsers set:', e);
+    showMsg(pass
+      ? 'ログイン用アカウントは作成できましたが、許可リストへの登録に失敗しました: ' + authErrText(e)
+      : '追加できませんでした: ' + authErrText(e), 'err');
   } finally {
     btn.disabled = false;
   }
