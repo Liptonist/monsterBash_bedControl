@@ -43,6 +43,7 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
 .msg{border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px;display:none;word-break:break-all}
 .msg.err{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e;display:block}
 .msg.ok{background:#e8f5e9;border:1px solid #b7e0ba;color:#256029;display:block}
+.msg-sub{margin-top:7px;padding-top:7px;border-top:1px solid rgba(0,0,0,.08);font-size:12px;opacity:.85}
 .pw-ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:120;align-items:center;justify-content:center;padding:20px 12px;overflow-y:auto}
 .pw-ovl.show{display:flex}
 .pw-card{background:#fff;border-radius:14px;border:1px solid #e0e0e0;width:360px;max-width:100%;margin:auto;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.15)}
@@ -356,15 +357,29 @@ async function removeUser(key) {
   if (u.email.toLowerCase() === me.email.toLowerCase()) {
     showMsg('自分自身は削除できません。', 'err'); return;
   }
-  if (!confirm(u.email + ' を許可リストから削除します。よろしいですか？')) return;
+  if (!confirm(`${u.email} を許可リストから削除します。\n`
+    + 'このアプリのデータには一切アクセスできなくなります。\n\n'
+    + 'なお、Firebaseの認証アカウント自体は残ります（ログインはできますが中身は見えません）。\n'
+    + '完全に消す方法は削除後に表示します。\n\nよろしいですか？')) return;
 
   try {
     await remove(ref(db, 'kyuugo/allowedUsers/' + key));
     logChange('ユーザー削除', u.email, u.admin ? '管理者' : '一般');
-    showMsg(u.email + ' を削除しました。', 'ok');
+    showRemovedMsg(u.email);
   } catch (e) {
     showMsg('削除できませんでした: ' + (e.code || e.message), 'err');
   }
+}
+
+// 削除後の案内。認証アカウントの消し方まで示す
+function showRemovedMsg(email) {
+  const el = $('msg');
+  el.className = 'msg ok';
+  el.innerHTML = '<b></b> を許可リストから削除しました。このアプリのデータにはアクセスできません。'
+    + '<div class="msg-sub">Firebaseの認証アカウントは残っています。完全に削除する場合は '
+    + '<b>Firebaseコンソール → Authentication → Users</b> で該当のメールアドレスを探し、'
+    + '行の右端「⋮」から「ユーザーを削除」を実行してください。</div>';
+  el.querySelector('b').textContent = email;
 }
 
 $('btn-add').addEventListener('click', addUser);
