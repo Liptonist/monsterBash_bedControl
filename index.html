@@ -83,6 +83,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .c-elapsed.ed{color:#dc2626;font-weight:700}
 .c-elapsed.ew{color:#d97706}
 /* Modal */
+.nav-link{font-size:11.5px;color:#3b82f6;text-decoration:none;padding:3px 8px;border:1px solid #93c5fd;border-radius:6px;background:#eff6ff;white-space:nowrap}
+.nav-link:hover{background:#dbeafe}
 .ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
 .ovl.show{display:flex}
 .mdl{background:#fff;border-radius:14px;border:1px solid #e0e0e0;width:340px;max-width:100%;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)}
@@ -147,6 +149,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <div class="hdr">
   <div class="dot" id="sync-dot"></div>
   <span class="hdr-title">救護所 ベッド・椅子コントロール</span>
+  <span class="hdr-user" id="hdr-user"></span>
+  <button class="hdr-logout" id="hdr-logout" style="display:none">ログアウト</button>
   <span class="sync-label" id="sync-label">接続中...</span>
   <span class="clk" id="clk"></span>
 </div>
@@ -265,22 +269,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
 <!-- Firebase SDK -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, update, push, runTransaction }
+import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyA2CJS6NF3rr46138iP5E8QZNRxz9kUzYk",
-  authDomain: "monster-bash-2026-medical.firebaseapp.com",
-  databaseURL: "https://monster-bash-2026-medical-default-rtdb.firebaseio.com",
-  projectId: "monster-bash-2026-medical",
-  storageBucket: "monster-bash-2026-medical.firebasestorage.app",
-  messagingSenderId: "728030132786",
-  appId: "1:728030132786:web:c6bd82bf1ccdb1f7761a2b",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+import { db, me, requireAuth, logChange, trackWrite } from './app-common.js';
 
 // ─── 定数 ───────────────────────────────────────────
 const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
@@ -350,24 +341,31 @@ function itemPayload(item) {
     age: item.age ?? null, gender: item.gender || '',
   };
 }
+// 書き込みはすべて trackWrite を通し、サーバーに確定するまで
+// 「保存中」を表示して他ページへ移動しないようにする
 function pushItem(ri, kindKey, idx, item) {
-  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`), itemPayload(item)).catch(e => console.warn(e));
+  trackWrite(set(ref(db, `kyuugo/rooms/${ri}/${kindKey}/${idx}`), itemPayload(item)))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 function pushItems(entries) {
   const updates = {};
   entries.forEach(([ri, kindKey, idx, item]) => {
     updates[`kyuugo/rooms/${ri}/${kindKey}/${idx}`] = itemPayload(item);
   });
-  update(ref(db), updates).catch(e => console.warn(e));
+  trackWrite(update(ref(db), updates))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 function pushCount(ri, kindKey) {
-  set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), rooms[ri][kindKey].map(itemPayload)).catch(e => console.warn(e));
+  trackWrite(set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), rooms[ri][kindKey].map(itemPayload)))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 function pushGlobalPatientId() {
-  set(ref(db, 'kyuugo/globalPatientId'), globalPatientId - 1).catch(e => console.warn(e));
+  trackWrite(set(ref(db, 'kyuugo/globalPatientId'), globalPatientId - 1))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 function pushDischarge(record) {
-  push(ref(db, 'kyuugo/discharged'), record).catch(e => console.warn(e));
+  trackWrite(push(ref(db, 'kyuugo/discharged'), record))
+    .then(() => setSyncStatus('online')).catch(() => {});
 }
 
 // ─── 接続状態 ─────────────────────────────────────────
@@ -428,7 +426,10 @@ function renderTabs() {
   document.getElementById('tabs').innerHTML =
     ROOMS.map((n,i) => `<div class="tab${i===cur?' on':''}" onclick="sw(${i})">${n}</div>`).join('') +
     `<div class="tab-spacer"></div>` +
-    `<a class="tab-link" href="discharged.html" target="_blank">📋 退室済み一覧</a>`;
+    `<a class="tab-link" href="discharged.html">📋 退室済み一覧</a>` +
+    `<a class="tab-link" href="history.html">🕘 変更履歴</a>` +
+    // ユーザー管理は管理者にだけ出す
+    (me.admin ? `<a class="tab-link" href="users.html">👥 ユーザー管理</a>` : '');
 }
 function sw(i) { cur=i; renderTabs(); renderAll(); }
 window.sw = sw;
@@ -505,9 +506,12 @@ function chgCnt(kind, d) {
   const key = kindToKey(kind);
   const arr = rooms[cur][key];
   const n = Math.max(1, Math.min(40, arr.length+d));
+  const before = arr.length;
   if (d>0) while (arr.length<n) arr.push(mkItem(arr.length+1));
   else while (arr.length>n) arr.pop();
+  if (arr.length === before) return;   // 上限・下限に達していれば記録しない
   pushCount(cur, key);
+  logChange('台数変更', `${ROOMS[cur]} ${KIND_LABEL[kind]}`, `${before} → ${arr.length}`);
   renderAll();
 }
 window.chgCnt = chgCnt;
@@ -588,9 +592,23 @@ function setSym(s) { document.getElementById('fsym').value = s; }
 window.setSym = setSym;
 
 // ─── 保存 ─────────────────────────────────────────────
+// 変更履歴用の枠の表示名（例: 本部 ベッドB3）
+function slotLabel(roomIdx, kind, b) {
+  return `${ROOMS[roomIdx]} ${KIND_LABEL[kind]}${KIND_PREFIX[kind]}${b.localId}`;
+}
+// 枠の中身を履歴の「内容」欄向けに整える
+function slotDetail(b, status) {
+  const parts = [SL[status] || status];
+  if (b.patientId) parts.push('P-' + b.patientId);
+  if (b.name) parts.push(b.name);
+  if (b.sym) parts.push(b.sym);
+  if (b.waiting) parts.push('送迎待ち');
+  return parts.join(' / ');
+}
+
 function saveB() {
   if (!editCtx) return;
-  const {key, idx, roomIdx} = editCtx;
+  const {kind, key, idx, roomIdx} = editCtx;
   const b = rooms[roomIdx][key][idx];
   if (!b) return;
   const wasEmpty = b.status==='empty';
@@ -602,16 +620,18 @@ function saveB() {
   b.age     = ageVal !== '' ? Number(ageVal) : null;
   b.gender  = document.getElementById('fgender').value;
   if (curS==='empty') {
+    const wasPid = b.patientId;
     b.enteredAt = null; b.patientId = null; b.waiting = false;
     setSyncStatus('syncing');
     pushItem(roomIdx, key, idx, b);
+    logChange('空きに変更', slotLabel(roomIdx, kind, b), wasPid ? 'P-' + wasPid : '');
     closeM(); renderAll();
     return;
   }
   b.enteredAt = parseTimeToTs(document.getElementById('ftime').value);
   setSyncStatus('syncing');
   if (wasEmpty && !b.patientId) {
-    runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1)
+    trackWrite(runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1))
       .then(result => {
         if (result.committed) {
           b.patientId = result.snapshot.val();
@@ -621,16 +641,19 @@ function saveB() {
           pushGlobalPatientId();
         }
         pushItem(roomIdx, key, idx, b);
+        logChange('登録', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
         renderAll();
       })
       .catch(() => {
         b.patientId = globalPatientId++;
         pushGlobalPatientId();
         pushItem(roomIdx, key, idx, b);
+        logChange('登録', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
         renderAll();
       });
   } else {
     pushItem(roomIdx, key, idx, b);
+    logChange('編集', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
   }
   closeM(); renderAll();
 }
@@ -665,6 +688,14 @@ function checkoutB() {
   };
   pushDischarge(record);
 
+  const outDetail = [
+    record.patientId ? 'P-' + record.patientId : null,
+    record.name || null,
+    record.triage,
+    record.stayMins != null ? `滞在${record.stayMins}分` : null,
+  ].filter(Boolean).join(' / ');
+  logChange('退室', slotLabel(roomIdx, kind, b), outDetail);
+
   b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
   setSyncStatus('syncing');
   pushItem(roomIdx, key, idx, b);
@@ -675,7 +706,7 @@ window.checkoutB = checkoutB;
 // ─── 移動処理 ─────────────────────────────────────────
 function moveB() {
   if (!editCtx) return;
-  const {key, idx, roomIdx} = editCtx;
+  const {kind, key, idx, roomIdx} = editCtx;
   const b = rooms[roomIdx][key][idx];
   if (!b || b.status==='empty') return;
 
@@ -708,6 +739,8 @@ function moveB() {
   dest.patientId = b.patientId;
   dest.enteredAt = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
 
+  const fromLabel = slotLabel(roomIdx, kind, b);
+
   b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
 
   setSyncStatus('syncing');
@@ -715,6 +748,7 @@ function moveB() {
     [destRoom, destKey, destIdx, dest],
     [roomIdx, key, idx, b],
   ]);
+  logChange('移動', `${fromLabel} → ${slotLabel(destRoom, destKind, dest)}`, slotDetail(dest, curS));
   closeM(); renderAll();
 }
 window.moveB = moveB;
@@ -730,7 +764,10 @@ function tick() {
   if (!document.getElementById('ovl').classList.contains('show')) renderAll();
 }
 
-renderTabs(); renderAll(); setInterval(tick,1000); tick(); subscribeAll();
+// ─── 起動（認証が通ってから） ─────────────────────────
+requireAuth('救護所 ベッド・椅子コントロール', () => {
+  renderTabs(); renderAll(); setInterval(tick,1000); tick(); subscribeAll();
+});
 </script>
 </body>
 </html>

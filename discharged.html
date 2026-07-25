@@ -55,6 +55,8 @@ tr:hover td{background:#fafafa}
 <div class="hdr">
   <a class="back-link" href="index.html">← 戻る</a>
   <span class="hdr-title">📋 退室済み一覧</span>
+  <span class="hdr-user" id="hdr-user"></span>
+  <button class="hdr-logout" id="hdr-logout" style="display:none">ログアウト</button>
   <div class="dot" id="sync-dot"></div>
   <span class="sync-label" id="sync-label">接続中...</span>
 </div>
@@ -86,21 +88,8 @@ tr:hover td{background:#fafafa}
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyA2CJS6NF3rr46138iP5E8QZNRxz9kUzYk",
-  authDomain: "monster-bash-2026-medical.firebaseapp.com",
-  databaseURL: "https://monster-bash-2026-medical-default-rtdb.firebaseio.com",
-  projectId: "monster-bash-2026-medical",
-  storageBucket: "monster-bash-2026-medical.firebasestorage.app",
-  messagingSenderId: "728030132786",
-  appId: "1:728030132786:web:c6bd82bf1ccdb1f7761a2b",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+import { ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { db, requireAuth, logChange, trackWrite } from './app-common.js';
 
 let allRecords = [];
 
@@ -110,31 +99,35 @@ function tsToHHMM(ts) {
   return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
 }
 
-onValue(ref(db, '.info/connected'), snap => {
-  const online = snap.val() === true;
-  document.getElementById('sync-dot').className = 'dot ' + (online ? 'online' : 'offline');
-  document.getElementById('sync-label').textContent = online ? 'リアルタイム同期中' : 'オフライン';
-  document.getElementById('offline-banner').classList.toggle('show', !online);
-});
-
-onValue(ref(db, 'kyuugo/discharged'), snap => {
-  const data = snap.val();
-  if (!data) { allRecords = []; render([]); return; }
-  // Firebaseのpushキーでソート（新しい順）
-  allRecords = Object.entries(data)
-    .map(([k, v]) => ({...v, _key: k}))
-    .sort((a,b) => (b.recordedAt||0) - (a.recordedAt||0));
-  applyFilter();
-});
-
 let trashRecords = [];
-onValue(ref(db, 'kyuugo/discharged_trash'), snap => {
-  const data = snap.val();
-  trashRecords = data
-    ? Object.entries(data).map(([k, v]) => ({...v, _key: k})).sort((a,b) => (b.trashedAt||0) - (a.trashedAt||0))
-    : [];
-  renderTrash();
-});
+
+// 認証が通ってから購読を開始する（startApp から呼ばれる）
+function subscribeAll() {
+  onValue(ref(db, '.info/connected'), snap => {
+    const online = snap.val() === true;
+    document.getElementById('sync-dot').className = 'dot ' + (online ? 'online' : 'offline');
+    document.getElementById('sync-label').textContent = online ? 'リアルタイム同期中' : 'オフライン';
+    document.getElementById('offline-banner').classList.toggle('show', !online);
+  });
+
+  onValue(ref(db, 'kyuugo/discharged'), snap => {
+    const data = snap.val();
+    if (!data) { allRecords = []; render([]); return; }
+    // Firebaseのpushキーでソート（新しい順）
+    allRecords = Object.entries(data)
+      .map(([k, v]) => ({...v, _key: k}))
+      .sort((a,b) => (b.recordedAt||0) - (a.recordedAt||0));
+    applyFilter();
+  });
+
+  onValue(ref(db, 'kyuugo/discharged_trash'), snap => {
+    const data = snap.val();
+    trashRecords = data
+      ? Object.entries(data).map(([k, v]) => ({...v, _key: k})).sort((a,b) => (b.trashedAt||0) - (a.trashedAt||0))
+      : [];
+    renderTrash();
+  });
+}
 
 function applyFilter() {
   const room = document.getElementById('filter-room').value;
@@ -221,9 +214,13 @@ function moveToTrash(key) {
   const rec = allRecords.find(r => r._key === key);
   if (!rec) return;
   const { _key, ...data } = rec;
-  set(ref(db, 'kyuugo/discharged_trash/' + key), { ...data, trashedAt: Date.now() })
-    .then(() => remove(ref(db, 'kyuugo/discharged/' + key)))
-    .catch(e => console.warn(e));
+  trackWrite(
+    set(ref(db, 'kyuugo/discharged_trash/' + key), { ...data, trashedAt: Date.now() })
+      .then(() => {
+        logChange('ゴミ箱へ移動', recLabel(rec), recDetail(rec));
+        return remove(ref(db, 'kyuugo/discharged/' + key));
+      })
+  ).catch(() => {});
 }
 window.moveToTrash = moveToTrash;
 
@@ -232,9 +229,26 @@ function restoreFromTrash(key) {
   const rec = trashRecords.find(r => r._key === key);
   if (!rec) return;
   const { _key, trashedAt, ...data } = rec;
-  set(ref(db, 'kyuugo/discharged/' + key), data)
-    .then(() => remove(ref(db, 'kyuugo/discharged_trash/' + key)))
-    .catch(e => console.warn(e));
+  trackWrite(
+    set(ref(db, 'kyuugo/discharged/' + key), data)
+      .then(() => {
+        logChange('一覧に戻す', recLabel(rec), recDetail(rec));
+        return remove(ref(db, 'kyuugo/discharged_trash/' + key));
+      })
+  ).catch(() => {});
+}
+
+// 変更履歴用に退室記録を要約する
+function recLabel(r) {
+  return [r.room, r.kind && r.slotId ? r.kind + r.slotId : r.slotId].filter(Boolean).join(' ') || '退室記録';
+}
+function recDetail(r) {
+  return [
+    r.patientId ? 'P-' + r.patientId : null,
+    r.name || null,
+    r.triage || null,
+    r.stayMins != null ? `滞在${r.stayMins}分` : null,
+  ].filter(Boolean).join(' / ');
 }
 window.restoreFromTrash = restoreFromTrash;
 
@@ -246,6 +260,9 @@ function avgStay(records) {
 function countRoom(records, room) {
   return records.filter(r => r.room === room).length;
 }
+
+// ─── 起動（認証が通ってから） ─────────────────────────
+requireAuth('📋 退室済み一覧', subscribeAll);
 </script>
 </body>
 </html>

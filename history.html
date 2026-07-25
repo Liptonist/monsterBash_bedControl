@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>変更履歴 — 救護所</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;background:#f5f5f5;color:#333;font-size:14px}
+.hdr{background:#fff;border-bottom:1px solid #e0e0e0;padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.hdr-title{font-size:15px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.back-link{font-size:12px;color:#3b82f6;text-decoration:none;padding:5px 10px;border:1px solid #93c5fd;border-radius:6px;background:#eff6ff;white-space:nowrap}
+.back-link:hover{background:#dbeafe}
+.content{padding:14px;max-width:900px;margin:0 auto}
+.filter-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.filter-label{font-size:12px;color:#777;white-space:nowrap}
+.filter-select,.filter-inp{padding:7px 10px;border:1px solid #d0d0d0;border-radius:7px;font-size:13px;font-family:inherit;background:#fff}
+.filter-inp{flex:1;min-width:150px}
+.filter-select:focus,.filter-inp:focus{outline:none;border-color:#3b82f6}
+.card{background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:620px}
+th{text-align:left;font-size:11.5px;color:#888;font-weight:600;padding:9px 10px;border-bottom:1px solid #e8e8e8;white-space:nowrap;background:#fafafa;position:sticky;top:0}
+td{padding:9px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:top}
+.c-time{white-space:nowrap;color:#666;font-variant-numeric:tabular-nums}
+.c-user{white-space:nowrap}
+.c-noname{color:#aaa;font-style:italic}
+.act{display:inline-block;border-radius:5px;padding:1px 8px;font-size:11.5px;font-weight:600;white-space:nowrap;background:#f5f5f5;color:#666;border:1px solid #e0e0e0}
+.act-add{background:#e8f5e9;color:#256029;border-color:#b7e0ba}
+.act-edit{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.act-out{background:#fff8e1;color:#7a5b00;border-color:#ffe0a3}
+.act-move{background:#f3e8ff;color:#6b21a8;border-color:#e2cffc}
+.act-del{background:#fdecea;color:#b3261e;border-color:#f5c6c2}
+.c-detail{color:#666;font-size:12px}
+.empty{color:#999;font-size:13px;padding:28px 8px;text-align:center}
+.foot{padding:10px;text-align:center}
+.more{background:none;border:1px solid #d0d0d0;border-radius:7px;color:#555;font-size:12.5px;padding:7px 16px;cursor:pointer}
+.more:hover{background:#f5f5f5}
+.count{font-size:12px;color:#888;margin-bottom:10px}
+.msg{border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px;display:none;word-break:break-all}
+.msg.err{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e;display:block}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <a class="back-link" href="index.html">← 戻る</a>
+  <span class="hdr-title">🕘 変更履歴</span>
+  <span class="hdr-user" id="hdr-user"></span>
+  <button class="hdr-logout" id="hdr-logout" style="display:none">ログアウト</button>
+</div>
+
+<div class="content">
+  <div class="msg" id="msg"></div>
+
+  <div class="filter-row">
+    <span class="filter-label">絞り込み：</span>
+    <select class="filter-select" id="f-user"><option value="">全ユーザー</option></select>
+    <select class="filter-select" id="f-action"><option value="">全操作</option></select>
+    <input class="filter-inp" id="f-text" type="search" placeholder="対象・内容で検索" autocomplete="off">
+  </div>
+
+  <div class="count" id="count"></div>
+
+  <div class="card">
+    <div class="tbl-wrap" id="table-area"></div>
+    <div class="foot" id="foot" style="display:none">
+      <button class="more" id="btn-more">さらに表示</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { db, requireAuth, NO_NAME } from './app-common.js';
+
+const $ = id => document.getElementById(id);
+const PAGE = 100;
+
+let entries = [];     // 新しい順
+let shown = PAGE;
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fmt(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const p = n => n.toString().padStart(2, '0');
+  return `${d.getMonth()+1}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// 操作の種類ごとに色を割り当てる
+function actClass(a) {
+  if (a.includes('登録')) return 'act-add';
+  if (a.includes('編集')) return 'act-edit';
+  if (a.includes('退室')) return 'act-out';
+  if (a.includes('移動')) return 'act-move';
+  if (a.includes('削除')) return 'act-del';
+  return '';
+}
+
+function filtered() {
+  const u = $('f-user').value;
+  const a = $('f-action').value;
+  const t = $('f-text').value.trim().toLowerCase();
+  return entries.filter(e =>
+    (!u || e.who === u) &&
+    (!a || e.action === a) &&
+    (!t || (e.target + ' ' + e.detail).toLowerCase().includes(t))
+  );
+}
+
+function render() {
+  const list = filtered();
+  $('count').textContent = list.length ? `${list.length}件` : '';
+
+  if (!list.length) {
+    $('table-area').innerHTML = '<div class="empty">該当する履歴がありません</div>';
+    $('foot').style.display = 'none';
+    return;
+  }
+
+  const rows = list.slice(0, shown).map(e => `<tr>
+    <td class="c-time">${fmt(e.at)}</td>
+    <td class="c-user${e.name === NO_NAME ? ' c-noname' : ''}">${esc(e.name)}</td>
+    <td><span class="act ${actClass(e.action)}">${esc(e.action)}</span></td>
+    <td>${esc(e.target)}</td>
+    <td class="c-detail">${esc(e.detail)}</td>
+  </tr>`).join('');
+
+  $('table-area').innerHTML = `<table>
+    <thead><tr><th>日時</th><th>ユーザー</th><th>操作</th><th>対象</th><th>内容</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+
+  $('foot').style.display = list.length > shown ? '' : 'none';
+}
+
+// 絞り込み用の選択肢を、実際に出現した値から組み立てる
+function refreshOptions() {
+  const sync = (sel, values, label) => {
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${label}</option>`
+      + values.map(v => `<option value="${esc(v.v)}">${esc(v.t)}</option>`).join('');
+    if (values.some(v => v.v === cur)) sel.value = cur;
+  };
+
+  // 絞り込みの値には uid を使い、メールアドレスは画面にもHTMLにも出さない
+  const byWho = new Map();
+  entries.forEach(e => { if (e.who) byWho.set(e.who, e.name); });
+  sync($('f-user'), [...byWho].map(([v, t]) => ({v, t})), '全ユーザー');
+
+  const acts = [...new Set(entries.map(e => e.action).filter(Boolean))].sort();
+  sync($('f-action'), acts.map(v => ({v, t: v})), '全操作');
+}
+
+function subscribe() {
+  onValue(ref(db, 'kyuugo/auditLog'), snap => {
+    const data = snap.val();
+    entries = data
+      ? Object.entries(data)
+          .map(([k, v]) => ({
+            _key: k,
+            at: v.at || 0,
+            // 記録時に解決済みの名前を使う。無い場合もアドレスは出さない
+            name: (v.name || '').trim() || NO_NAME,
+            // 絞り込み用の識別子。uid が無い古い記録は名前でまとめる
+            who: v.uid || v.name || '',
+            action: v.action || '',
+            target: v.target || '',
+            detail: v.detail || '',
+          }))
+          .sort((a, b) => b.at - a.at)
+      : [];
+    refreshOptions();
+    render();
+  }, e => {
+    const el = $('msg');
+    el.className = 'msg err';
+    el.textContent = '変更履歴を読み込めませんでした: ' + (e.code || e.message);
+  });
+}
+
+['f-user', 'f-action'].forEach(id =>
+  $(id).addEventListener('change', () => { shown = PAGE; render(); }));
+$('f-text').addEventListener('input', () => { shown = PAGE; render(); });
+$('btn-more').addEventListener('click', () => { shown += PAGE; render(); });
+
+requireAuth('🕘 変更履歴', subscribe);
+</script>
+</body>
+</html>
