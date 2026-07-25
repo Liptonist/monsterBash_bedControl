@@ -1,0 +1,33 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "kyuugo": {
+      "allowedUsers": {
+        ".read": "auth != null",
+        ".write": false
+      },
+
+      "rooms": {
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true"
+      },
+
+      "globalPatientId": {
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true"
+      },
+
+      "discharged": {
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true"
+      },
+
+      "discharged_trash": {
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true"
+      }
+    }
+  }
+}
