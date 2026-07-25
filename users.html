@@ -157,7 +157,8 @@ function render() {
       <td>${nameCell}${isSelf ? '<span class="self">(自分)</span>' : ''}</td>
       <td>${esc(u.email)}</td>
       <td><span class="badge ${u.admin ? '' : 'badge-plain'}">${u.admin ? '管理者' : '一般'}</span></td>
-      <td><span class="badge ${isPw ? 'badge-pw' : 'badge-google'}">${isPw ? '🔑 ID/パスワード' : 'Google'}</span></td>
+      <td><span class="badge ${isPw ? 'badge-pw' : 'badge-google'}"
+            title="${isPw ? 'IDとパスワードでログイン' : 'Googleアカウントでログイン'}">${isPw ? '🔑 ID' : 'Google'}</span></td>
       <td class="c-pw">
         <button class="btn-sm btn-pw" data-key="${esc(u.key)}">変更</button>
         <button class="btn-sm btn-reset" data-key="${esc(u.key)}">再設定</button>
