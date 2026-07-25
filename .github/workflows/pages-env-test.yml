@@ -1,12 +1,6 @@
 name: Pages Environment Test (temporary)
 
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - claude/feature-branch-html-publish-i9vvl7
-    paths:
-      - .github/workflows/pages-env-test.yml
+on: push
 
 permissions:
   contents: read
@@ -19,5 +13,4 @@ jobs:
     environment:
       name: github-pages
     steps:
-      - name: Hello
-        run: echo "hi, got a runner for the github-pages environment"
+      - run: echo "hi, got a runner for the github-pages environment"
