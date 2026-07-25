@@ -2,6 +2,11 @@ name: Pages Environment Test (temporary)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - claude/feature-branch-html-publish-i9vvl7
+    paths:
+      - .github/workflows/pages-env-test.yml
 
 permissions:
   contents: read
