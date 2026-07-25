@@ -83,22 +83,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .c-elapsed.ed{color:#dc2626;font-weight:700}
 .c-elapsed.ew{color:#d97706}
 /* Modal */
-/* ログイン画面（認証が通るまで全面を覆う） */
-.auth-ovl{position:fixed;inset:0;background:#f5f5f5;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px 12px;overflow-y:auto}
-.auth-ovl.hide{display:none}
-.auth-card{background:#fff;border-radius:14px;border:1px solid #e0e0e0;width:340px;max-width:100%;margin:auto;padding:28px 22px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.1)}
-.auth-title{font-size:17px;font-weight:600;margin-bottom:8px}
-.auth-sub{font-size:13px;color:#666;line-height:1.7;margin-bottom:20px}
-.auth-btn{width:100%;padding:11px 14px;border:1px solid #dadce0;border-radius:8px;background:#fff;font-size:14px;font-weight:600;color:#3c4043;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px}
-.auth-btn:hover{background:#f8f9fa}
-.auth-btn:disabled{opacity:.5;cursor:default}
-.auth-sub-btn{margin-top:12px;background:none;border:none;color:#888;font-size:12px;cursor:pointer;text-decoration:underline}
-.auth-err{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.7;text-align:left;margin-bottom:16px;word-break:break-all}
-.auth-note{background:#fff8e1;border:1px solid #ffe0a3;color:#7a5b00;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.7;text-align:left;margin-bottom:16px;word-break:break-all}
-.auth-code{display:block;background:#f1f3f4;border-radius:5px;padding:5px 7px;margin-top:6px;font-family:monospace;font-size:11.5px;word-break:break-all}
-.hdr-user{font-size:11.5px;color:#888;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hdr-logout{background:none;border:1px solid #e0e0e0;border-radius:6px;color:#666;font-size:11.5px;padding:3px 8px;cursor:pointer;white-space:nowrap}
-.hdr-logout:hover{background:#f5f5f5}
+.nav-link{font-size:11.5px;color:#3b82f6;text-decoration:none;padding:3px 8px;border:1px solid #93c5fd;border-radius:6px;background:#eff6ff;white-space:nowrap}
+.nav-link:hover{background:#dbeafe}
 .ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
 .ovl.show{display:flex}
 .mdl{background:#fff;border-radius:14px;border:1px solid #e0e0e0;width:340px;max-width:100%;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)}
@@ -158,27 +144,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 </head>
 <body>
 
-<!-- ログイン画面（認証が通るまで表示。既定で表示状態） -->
-<div class="auth-ovl" id="auth-ovl">
-  <div class="auth-card">
-    <div class="auth-title">救護所 ベッド・椅子コントロール</div>
-    <div class="auth-sub" id="auth-sub">続けるにはGoogleアカウントでログインしてください。</div>
-    <div class="auth-err" id="auth-err" style="display:none"></div>
-    <div class="auth-note" id="auth-note" style="display:none"></div>
-    <button class="auth-btn" id="auth-btn" onclick="doLogin()">
-      <span>🔑</span><span>Googleでログイン</span>
-    </button>
-    <button class="auth-sub-btn" id="auth-logout" style="display:none" onclick="doLogout()">別のアカウントでログインする</button>
-  </div>
-</div>
-
 <div class="offline-banner" id="offline-banner">⚠️ オフライン中 — 操作内容はローカルに保存され、回線復帰時に自動同期されます</div>
 
 <div class="hdr">
   <div class="dot" id="sync-dot"></div>
   <span class="hdr-title">救護所 ベッド・椅子コントロール</span>
   <span class="hdr-user" id="hdr-user"></span>
-  <button class="hdr-logout" id="hdr-logout" style="display:none" onclick="doLogout()">ログアウト</button>
+  <button class="hdr-logout" id="hdr-logout" style="display:none">ログアウト</button>
   <span class="sync-label" id="sync-label">接続中...</span>
   <span class="clk" id="clk"></span>
 </div>
@@ -297,26 +269,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 
 <!-- Firebase SDK -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, update, push, runTransaction, get }
+import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
-         getRedirectResult, onAuthStateChanged, signOut }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyA2CJS6NF3rr46138iP5E8QZNRxz9kUzYk",
-  authDomain: "monster-bash-2026-medical.firebaseapp.com",
-  databaseURL: "https://monster-bash-2026-medical-default-rtdb.firebaseio.com",
-  projectId: "monster-bash-2026-medical",
-  storageBucket: "monster-bash-2026-medical.firebasestorage.app",
-  messagingSenderId: "728030132786",
-  appId: "1:728030132786:web:c6bd82bf1ccdb1f7761a2b",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
+import { db, me, requireAuth, logChange } from './app-common.js';
 
 // ─── 定数 ───────────────────────────────────────────
 const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
@@ -464,7 +419,10 @@ function renderTabs() {
   document.getElementById('tabs').innerHTML =
     ROOMS.map((n,i) => `<div class="tab${i===cur?' on':''}" onclick="sw(${i})">${n}</div>`).join('') +
     `<div class="tab-spacer"></div>` +
-    `<a class="tab-link" href="discharged.html" target="_blank">📋 退室済み一覧</a>`;
+    `<a class="tab-link" href="discharged.html" target="_blank">📋 退室済み一覧</a>` +
+    `<a class="tab-link" href="history.html" target="_blank">🕘 変更履歴</a>` +
+    // ユーザー管理は管理者にだけ出す
+    (me.admin ? `<a class="tab-link" href="users.html" target="_blank">👥 ユーザー管理</a>` : '');
 }
 function sw(i) { cur=i; renderTabs(); renderAll(); }
 window.sw = sw;
@@ -541,9 +499,12 @@ function chgCnt(kind, d) {
   const key = kindToKey(kind);
   const arr = rooms[cur][key];
   const n = Math.max(1, Math.min(40, arr.length+d));
+  const before = arr.length;
   if (d>0) while (arr.length<n) arr.push(mkItem(arr.length+1));
   else while (arr.length>n) arr.pop();
+  if (arr.length === before) return;   // 上限・下限に達していれば記録しない
   pushCount(cur, key);
+  logChange('台数変更', `${ROOMS[cur]} ${KIND_LABEL[kind]}`, `${before} → ${arr.length}`);
   renderAll();
 }
 window.chgCnt = chgCnt;
@@ -624,9 +585,23 @@ function setSym(s) { document.getElementById('fsym').value = s; }
 window.setSym = setSym;
 
 // ─── 保存 ─────────────────────────────────────────────
+// 変更履歴用の枠の表示名（例: 本部 ベッドB3）
+function slotLabel(roomIdx, kind, b) {
+  return `${ROOMS[roomIdx]} ${KIND_LABEL[kind]}${KIND_PREFIX[kind]}${b.localId}`;
+}
+// 枠の中身を履歴の「内容」欄向けに整える
+function slotDetail(b, status) {
+  const parts = [SL[status] || status];
+  if (b.patientId) parts.push('P-' + b.patientId);
+  if (b.name) parts.push(b.name);
+  if (b.sym) parts.push(b.sym);
+  if (b.waiting) parts.push('送迎待ち');
+  return parts.join(' / ');
+}
+
 function saveB() {
   if (!editCtx) return;
-  const {key, idx, roomIdx} = editCtx;
+  const {kind, key, idx, roomIdx} = editCtx;
   const b = rooms[roomIdx][key][idx];
   if (!b) return;
   const wasEmpty = b.status==='empty';
@@ -638,9 +613,11 @@ function saveB() {
   b.age     = ageVal !== '' ? Number(ageVal) : null;
   b.gender  = document.getElementById('fgender').value;
   if (curS==='empty') {
+    const wasPid = b.patientId;
     b.enteredAt = null; b.patientId = null; b.waiting = false;
     setSyncStatus('syncing');
     pushItem(roomIdx, key, idx, b);
+    logChange('空きに変更', slotLabel(roomIdx, kind, b), wasPid ? 'P-' + wasPid : '');
     closeM(); renderAll();
     return;
   }
@@ -657,16 +634,19 @@ function saveB() {
           pushGlobalPatientId();
         }
         pushItem(roomIdx, key, idx, b);
+        logChange('登録', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
         renderAll();
       })
       .catch(() => {
         b.patientId = globalPatientId++;
         pushGlobalPatientId();
         pushItem(roomIdx, key, idx, b);
+        logChange('登録', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
         renderAll();
       });
   } else {
     pushItem(roomIdx, key, idx, b);
+    logChange('編集', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
   }
   closeM(); renderAll();
 }
@@ -701,6 +681,14 @@ function checkoutB() {
   };
   pushDischarge(record);
 
+  const outDetail = [
+    record.patientId ? 'P-' + record.patientId : null,
+    record.name || null,
+    record.triage,
+    record.stayMins != null ? `滞在${record.stayMins}分` : null,
+  ].filter(Boolean).join(' / ');
+  logChange('退室', slotLabel(roomIdx, kind, b), outDetail);
+
   b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
   setSyncStatus('syncing');
   pushItem(roomIdx, key, idx, b);
@@ -711,7 +699,7 @@ window.checkoutB = checkoutB;
 // ─── 移動処理 ─────────────────────────────────────────
 function moveB() {
   if (!editCtx) return;
-  const {key, idx, roomIdx} = editCtx;
+  const {kind, key, idx, roomIdx} = editCtx;
   const b = rooms[roomIdx][key][idx];
   if (!b || b.status==='empty') return;
 
@@ -744,6 +732,8 @@ function moveB() {
   dest.patientId = b.patientId;
   dest.enteredAt = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
 
+  const fromLabel = slotLabel(roomIdx, kind, b);
+
   b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
 
   setSyncStatus('syncing');
@@ -751,6 +741,7 @@ function moveB() {
     [destRoom, destKey, destIdx, dest],
     [roomIdx, key, idx, b],
   ]);
+  logChange('移動', `${fromLabel} → ${slotLabel(destRoom, destKind, dest)}`, slotDetail(dest, curS));
   closeM(); renderAll();
 }
 window.moveB = moveB;
@@ -766,113 +757,9 @@ function tick() {
   if (!document.getElementById('ovl').classList.contains('show')) renderAll();
 }
 
-// ─── 認証（Googleログイン + 許可リスト） ──────────────
-// 許可リストは Firebase 上の kyuugo/allowedUsers に置く。
-// キーはメールアドレスの「.」を「,」に置換したもの（RTDBのキーに「.」が使えないため）。
-// 例: yamada.taro@gmail.com → yamada,taro@gmail,com : true
-const emailKey = e => e.trim().toLowerCase().replace(/\./g, ',');
-
-let appStarted = false;
-
-function startApp(user) {
-  const chip = document.getElementById('hdr-user');
-  if (chip) chip.textContent = user.email || '';
-  const lo = document.getElementById('hdr-logout');
-  if (lo) lo.style.display = '';
-  document.getElementById('auth-ovl').classList.add('hide');
-
-  if (appStarted) return;          // 再認証時に二重購読しないようにする
-  appStarted = true;
+// ─── 起動（認証が通ってから） ─────────────────────────
+requireAuth('救護所 ベッド・椅子コントロール', () => {
   renderTabs(); renderAll(); setInterval(tick,1000); tick(); subscribeAll();
-}
-
-// ログイン画面の表示切り替え。mode: 'login' | 'denied' | 'setup' | 'error' | 'working'
-function showAuth(mode, opts = {}) {
-  document.getElementById('auth-ovl').classList.remove('hide');
-  const sub  = document.getElementById('auth-sub');
-  const err  = document.getElementById('auth-err');
-  const note = document.getElementById('auth-note');
-  const btn  = document.getElementById('auth-btn');
-  const out  = document.getElementById('auth-logout');
-
-  err.style.display = note.style.display = 'none';
-  btn.style.display = out.style.display = 'none';
-  btn.disabled = false;
-
-  if (mode === 'working') {
-    sub.textContent = opts.text || '確認中...';
-  } else if (mode === 'login') {
-    sub.textContent = '続けるにはGoogleアカウントでログインしてください。';
-    btn.style.display = '';
-  } else if (mode === 'denied') {
-    sub.textContent = 'このアカウントには利用権限がありません。';
-    err.style.display = '';
-    err.innerHTML = 'ログイン中: <b></b><br>管理者に許可リストへの追加を依頼してください。';
-    err.querySelector('b').textContent = opts.email || '';
-    out.style.display = '';
-  } else if (mode === 'setup') {
-    sub.textContent = '許可リスト（kyuugo/allowedUsers）がまだ未設定です。';
-    note.style.display = '';
-    note.innerHTML = 'Firebaseコンソールの Realtime Database で、以下のキーを <code>true</code> として追加すると、このアカウントが利用できるようになります。'
-      + '<code class="auth-code"></code>';
-    note.querySelector('.auth-code').textContent = 'kyuugo/allowedUsers/' + emailKey(opts.email || '');
-    out.style.display = '';
-  } else if (mode === 'error') {
-    sub.textContent = 'ログイン処理でエラーが発生しました。';
-    err.style.display = '';
-    err.textContent = opts.message || '不明なエラー';
-    btn.style.display = '';
-  }
-}
-
-async function doLogin() {
-  const btn = document.getElementById('auth-btn');
-  btn.disabled = true;
-  const provider = new GoogleAuthProvider();
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (e) {
-    // ポップアップがブロックされる環境（アプリ内ブラウザ等）ではリダイレクト方式にする
-    if (e && /popup-blocked|popup-closed-by-user|operation-not-supported/.test(e.code || '')) {
-      try {
-        await signInWithRedirect(auth, provider);
-        return;
-      } catch (e2) {
-        showAuth('error', {message: (e2.code || '') + ' ' + (e2.message || '')});
-        return;
-      }
-    }
-    showAuth('error', {message: (e.code || '') + ' ' + (e.message || '')});
-  }
-}
-
-async function doLogout() {
-  try { await signOut(auth); } catch (e) { console.warn(e); }
-  location.reload();   // 購読を確実に切るためリロードする
-}
-
-window.doLogin = doLogin;
-window.doLogout = doLogout;
-
-// リダイレクト方式で戻ってきた場合の結果を拾う（失敗しても onAuthStateChanged が続行する）
-getRedirectResult(auth).catch(e => console.warn(e));
-
-onAuthStateChanged(auth, async user => {
-  if (!user) { showAuth('login'); return; }
-
-  showAuth('working', {text: '権限を確認しています...'});
-  try {
-    const snap = await get(ref(db, 'kyuugo/allowedUsers'));
-    if (!snap.exists()) { showAuth('setup', {email: user.email}); return; }
-    if (snap.child(emailKey(user.email || '')).val() !== true) {
-      showAuth('denied', {email: user.email});
-      return;
-    }
-  } catch (e) {
-    showAuth('error', {message: '許可リストを確認できませんでした: ' + (e.code || e.message || e)});
-    return;
-  }
-  startApp(user);
 });
 </script>
 </body>

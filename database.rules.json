@@ -6,27 +6,35 @@
     "kyuugo": {
       "allowedUsers": {
         ".read": "auth != null",
-        ".write": false
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).child('admin').val() === true"
+      },
+
+      "auditLog": {
+        ".read": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
+        "$entry": {
+          ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists() && !data.exists() && newData.exists()",
+          ".validate": "newData.hasChildren(['at', 'email', 'action']) && newData.child('email').val() === auth.token.email"
+        }
       },
 
       "rooms": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true"
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()"
       },
 
       "globalPatientId": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true"
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()"
       },
 
       "discharged": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true"
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()"
       },
 
       "discharged_trash": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).val() === true"
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()"
       }
     }
   }
