@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>保存済みの記録 | 救護所</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;color:#1a1a1a;font-size:14px;background:#f5f5f5}
+.hdr{background:#fff;border-bottom:1px solid #e0e0e0;padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.hdr-title{font-size:15px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.back-link{font-size:12px;color:#3b82f6;text-decoration:none;padding:5px 10px;border:1px solid #93c5fd;border-radius:6px;background:#eff6ff;white-space:nowrap}
+.back-link:hover{background:#dbeafe}
+.content{padding:14px}
+.days{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.day-btn{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:10px 16px;cursor:pointer;text-align:left;min-width:130px}
+.day-btn:hover{border-color:#93c5fd;background:#f8faff}
+.day-btn.on{border-color:#3b82f6;background:#eff6ff;box-shadow:0 0 0 1px #3b82f6}
+.day-lbl{font-size:13px;font-weight:600;margin-bottom:3px}
+.day-meta{font-size:11px;color:#888;line-height:1.6}
+.summary{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.sum-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px}
+.sum-num{font-size:22px;font-weight:600;color:#3b82f6}
+.sum-lbl{font-size:11px;color:#888;margin-top:2px}
+.filter-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filter-label{font-size:12px;color:#666}
+.filter-select{font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#1a1a1a}
+.sec-h{font-size:13px;font-weight:600;color:#888;margin:22px 0 8px;padding-top:14px;border-top:1px solid #e0e0e0}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+table{width:100%;min-width:680px;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
+thead{background:#f0f4ff}
+th{font-size:11px;font-weight:600;color:#555;padding:9px 10px;text-align:left;border-bottom:1px solid #e0e0e0;white-space:nowrap}
+td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.pid{font-size:10px;padding:2px 6px;border-radius:4px;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-weight:500}
+.room-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;font-weight:500}
+.slot-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#f5f5f5;border:1px solid #ccc;color:#555;font-weight:500}
+.stay{font-weight:500;color:#374151}
+.stay.long{color:#dc2626}
+.trash-wrap{opacity:.7}
+.empty-msg{text-align:center;color:#aaa;padding:40px;font-size:13px}
+.msg{border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px;display:none;word-break:break-all}
+.msg.err{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e;display:block}
+.note{font-size:11.5px;color:#999;margin-top:14px;line-height:1.8}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <a class="back-link" href="index.html">← 戻る</a>
+  <span class="hdr-title">📦 保存済みの記録</span>
+  <span class="hdr-user" id="hdr-user"></span>
+  <button class="hdr-logout" id="hdr-logout" style="display:none">ログアウト</button>
+</div>
+
+<div class="content">
+  <div class="msg" id="msg"></div>
+  <div class="days" id="days"></div>
+  <div id="detail"></div>
+</div>
+
+<script type="module">
+import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { db, requireAuth, pidShort } from './app-common.js';
+
+const $ = id => document.getElementById(id);
+
+let archives = [];     // 新しい順
+let selected = null;   // 表示中のキー
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function tsToHHMM(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+}
+
+function fmtDate(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+}
+
+// 保存された記録は連想配列なので配列に直す
+function toList(obj, sortKey) {
+  return obj
+    ? Object.entries(obj).map(([k, v]) => ({...v, _key: k}))
+        .sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0))
+    : [];
+}
+
+function tableHTML(records) {
+  const rows = records.map(r => `<tr>
+    <td>${pidShort(r) ? `<span class="pid">${esc(pidShort(r))}</span>` : '—'}</td>
+    <td>${esc(r.name || '—')}</td>
+    <td>${r.age != null ? esc(r.age) : '—'}${r.gender ? '・' + esc(r.gender) : ''}</td>
+    <td>${esc(r.sym || '—')}</td>
+    <td><span class="room-badge">${esc(r.room || '—')}</span></td>
+    <td><span class="slot-badge">${esc(r.kind || '')}${esc(r.slotId || '')}</span></td>
+    <td>${esc(r.triage || '—')}</td>
+    <td>${tsToHHMM(r.enteredAt)}</td>
+    <td>${tsToHHMM(r.exitedAt)}</td>
+    <td class="stay ${r.stayMins > 120 ? 'long' : ''}">${r.stayMins != null ? r.stayMins + '分' : '—'}</td>
+  </tr>`).join('');
+
+  return `<div class="table-scroll"><table>
+    <thead><tr>
+      <th>患者ID</th><th>氏名</th><th>年齢・性別</th><th>症状</th><th>部屋</th>
+      <th>枠</th><th>重症度</th><th>入室</th><th>退室</th><th>滞在</th>
+    </tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function avgStay(records) {
+  const valid = records.filter(r => r.stayMins != null);
+  if (!valid.length) return '—';
+  return Math.round(valid.reduce((s, r) => s + r.stayMins, 0) / valid.length);
+}
+const countRoom = (records, room) => records.filter(r => r.room === room).length;
+
+function renderDays() {
+  if (!archives.length) {
+    $('days').innerHTML = '';
+    $('detail').innerHTML =
+      '<div class="empty-msg">保存済みの記録はまだありません。<br>'
+      + '「退室済み一覧」ページで日次の締めを行うと、ここに保存されます。</div>';
+    return;
+  }
+  $('days').innerHTML = archives.map(a => `
+    <button class="day-btn ${a._key === selected ? 'on' : ''}" data-key="${esc(a._key)}">
+      <div class="day-lbl">${esc(a.label || a._key)}</div>
+      <div class="day-meta">
+        退室 ${a.dischargedCount ?? 0}件 / ゴミ箱 ${a.trashCount ?? 0}件<br>
+        ${fmtDate(a.archivedAt)} 締め
+      </div>
+    </button>`).join('');
+
+  $('days').querySelectorAll('.day-btn').forEach(b =>
+    b.addEventListener('click', () => { selected = b.dataset.key; renderDays(); renderDetail(); }));
+}
+
+function renderDetail() {
+  const a = archives.find(x => x._key === selected);
+  if (!a) { $('detail').innerHTML = ''; return; }
+
+  const recs  = toList(a.discharged, 'recordedAt');
+  const trash = toList(a.discharged_trash, 'trashedAt');
+
+  const room = $('f-room')?.value || '';
+  const kind = $('f-kind')?.value || '';
+  const shown = recs.filter(r => (!room || r.room === room) && (!kind || r.kind === kind));
+
+  $('detail').innerHTML = `
+    <div class="summary">
+      <div class="sum-card"><div class="sum-num">${recs.length}</div><div class="sum-lbl">総退室数</div></div>
+      <div class="sum-card"><div class="sum-num">${avgStay(recs)}</div><div class="sum-lbl">平均滞在(分)</div></div>
+      <div class="sum-card"><div class="sum-num">${countRoom(recs,'本部')}</div><div class="sum-lbl">本部</div></div>
+      <div class="sum-card"><div class="sum-num">${countRoom(recs,'空海横')}</div><div class="sum-lbl">空海横</div></div>
+      <div class="sum-card"><div class="sum-num">${countRoom(recs,'サーカス')}</div><div class="sum-lbl">サーカス</div></div>
+      <div class="sum-card"><div class="sum-num">${countRoom(recs,'茶堂')}</div><div class="sum-lbl">茶堂</div></div>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">絞り込み：</span>
+      <select class="filter-select" id="f-room">
+        <option value="">全部屋</option>
+        <option${room==='本部'?' selected':''}>本部</option>
+        <option${room==='空海横'?' selected':''}>空海横</option>
+        <option${room==='サーカス'?' selected':''}>サーカス</option>
+        <option${room==='茶堂'?' selected':''}>茶堂</option>
+      </select>
+      <select class="filter-select" id="f-kind">
+        <option value="">全種別</option>
+        <option value="ベッド"${kind==='ベッド'?' selected':''}>ベッド</option>
+        <option value="室内椅子"${kind==='室内椅子'?' selected':''}>室内椅子</option>
+        <option value="室外椅子"${kind==='室外椅子'?' selected':''}>室外椅子</option>
+      </select>
+    </div>
+    ${shown.length ? tableHTML(shown) : '<div class="empty-msg">該当する記録はありません</div>'}
+    <div class="sec-h">🗑️ ゴミ箱（${trash.length}件）</div>
+    <div class="trash-wrap">
+      ${trash.length ? tableHTML(trash) : '<div class="empty-msg">ゴミ箱は空です</div>'}
+    </div>
+    <div class="note">
+      締め実行: ${esc(a.archivedBy || '—')}　${fmtDate(a.archivedAt)}<br>
+      保存済みの記録は読み取り専用です。編集・復元はできません。
+    </div>`;
+
+  ['f-room', 'f-kind'].forEach(id =>
+    $(id)?.addEventListener('change', renderDetail));
+}
+
+function subscribeAll() {
+  onValue(ref(db, 'kyuugo/archives'), snap => {
+    const data = snap.val();
+    archives = data
+      ? Object.entries(data).map(([k, v]) => ({...v, _key: k}))
+          .sort((a, b) => (b.year - a.year) || (b.day - a.day))
+      : [];
+    if (!archives.some(a => a._key === selected)) {
+      selected = archives.length ? archives[0]._key : null;
+    }
+    renderDays();
+    renderDetail();
+  }, e => {
+    const el = $('msg');
+    el.className = 'msg err';
+    el.textContent = '保存済みの記録を読み込めませんでした: ' + (e.code || e.message);
+  });
+}
+
+requireAuth('📦 保存済みの記録', subscribeAll);
+</script>
+</body>
+</html>

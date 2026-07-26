@@ -9,6 +9,16 @@
         ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).child('admin').val() === true"
       },
 
+      "festival": {
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).child('admin').val() === true"
+      },
+
+      "archives": {
+        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
+        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).child('admin').val() === true"
+      },
+
       "auditLog": {
         ".read": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
         "$entry": {

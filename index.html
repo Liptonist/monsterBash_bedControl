@@ -271,7 +271,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 <script type="module">
 import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { db, me, requireAuth, logChange, trackWrite } from './app-common.js';
+import { db, me, requireAuth, logChange, trackWrite,
+         festival, subscribeFestival, formatPid, pidText, pidShort } from './app-common.js';
 
 // ─── 定数 ───────────────────────────────────────────
 const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
@@ -295,7 +296,7 @@ let editCtx = null;
 let curS = 'empty';
 
 function mkItem(localId) {
-  return {localId, patientId:null, status:'empty', name:'', sym:'', waiting:false, enteredAt:null, age:null, gender:''};
+  return {localId, patientId:null, patientCode:null, status:'empty', name:'', sym:'', waiting:false, enteredAt:null, age:null, gender:''};
 }
 function normStatus(s) {
   if (!s) return 'empty';
@@ -335,7 +336,7 @@ function subscribeAll() {
 
 function itemPayload(item) {
   return {
-    localId: item.localId, patientId: item.patientId ?? null,
+    localId: item.localId, patientId: item.patientId ?? null, patientCode: item.patientCode ?? null,
     status: item.status, name: item.name, sym: item.sym,
     waiting: !!item.waiting, enteredAt: item.enteredAt ?? null,
     age: item.age ?? null, gender: item.gender || '',
@@ -427,6 +428,7 @@ function renderTabs() {
     ROOMS.map((n,i) => `<div class="tab${i===cur?' on':''}" onclick="sw(${i})">${n}</div>`).join('') +
     `<div class="tab-spacer"></div>` +
     `<a class="tab-link" href="discharged.html">📋 退室済み一覧</a>` +
+    `<a class="tab-link" href="archives.html">📦 保存済み</a>` +
     `<a class="tab-link" href="history.html">🕘 変更履歴</a>` +
     // ユーザー管理は管理者にだけ出す
     (me.admin ? `<a class="tab-link" href="users.html">👥 ユーザー管理</a>` : '');
@@ -453,7 +455,7 @@ function bedHTML(b) {
     const ec = m>=30?'ed':m>=20?'ew':'';
     tinfo = `<div class="itime"><span>${tsToHHMM(b.enteredAt)}</span><span class="elapsed ${ec}">${m}分</span></div>`;
   }
-  const pid  = b.patientId ? `<span class="id-chip id-pat">P-${b.patientId}</span>` : '';
+  const pid  = pidShort(b) ? `<span class="id-chip id-pat">${pidShort(b)}</span>` : '';
   const wait = b.waiting ? `<span class="wait-chip">送迎待ち</span>` : '';
   const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
   const ag = ageGenderText(b);
@@ -487,7 +489,7 @@ function chairHTML(b, kind) {
     const ec = m>=30?'ed':m>=20?'ew':'';
     timeRow = `<div class="c-timerow"><span class="c-time">${tsToHHMM(b.enteredAt)}</span><span class="c-elapsed ${ec}">${m}分</span></div>`;
   }
-  const pid  = b.patientId ? `<span class="c-pid">P-${b.patientId}</span>` : '';
+  const pid  = pidShort(b) ? `<span class="c-pid">${pidShort(b)}</span>` : '';
   const sym  = b.sym ? `<div class="c-sym">${b.sym}</div>` : '';
   const wait = b.waiting ? `<div class="c-wait">送迎待ち</div>` : '';
   const prefix = KIND_PREFIX[kind];
@@ -527,7 +529,7 @@ function openM(kind, idx) {
   document.getElementById('mtitle').textContent = `${KIND_LABEL[kind]} ${ROOMS[cur]}-${prefix}${b.localId} 編集`;
   document.getElementById('id-lbl').textContent = (kind==='bed'?'ベッドID':'椅子ID')+'（部屋内固定）';
   document.getElementById('fid').value = `${prefix}${b.localId}`;
-  document.getElementById('fpid').value = b.patientId ? 'P-'+b.patientId : '（入室時に自動発番）';
+  document.getElementById('fpid').value = pidShort(b) || '（入室時に自動発番）';
   document.getElementById('fname').value = b.name;
   document.getElementById('fage').value = b.age ?? '';
   document.getElementById('fgender').value = b.gender || '';
@@ -599,7 +601,7 @@ function slotLabel(roomIdx, kind, b) {
 // 枠の中身を履歴の「内容」欄向けに整える
 function slotDetail(b, status) {
   const parts = [SL[status] || status];
-  if (b.patientId) parts.push('P-' + b.patientId);
+  if (pidShort(b)) parts.push(pidShort(b));
   if (b.name) parts.push(b.name);
   if (b.sym) parts.push(b.sym);
   if (b.waiting) parts.push('送迎待ち');
@@ -620,11 +622,11 @@ function saveB() {
   b.age     = ageVal !== '' ? Number(ageVal) : null;
   b.gender  = document.getElementById('fgender').value;
   if (curS==='empty') {
-    const wasPid = b.patientId;
-    b.enteredAt = null; b.patientId = null; b.waiting = false;
+    const wasPid = pidShort(b);
+    b.enteredAt = null; b.patientId = null; b.patientCode = null; b.waiting = false;
     setSyncStatus('syncing');
     pushItem(roomIdx, key, idx, b);
-    logChange('空きに変更', slotLabel(roomIdx, kind, b), wasPid ? 'P-' + wasPid : '');
+    logChange('空きに変更', slotLabel(roomIdx, kind, b), wasPid);
     closeM(); renderAll();
     return;
   }
@@ -635,9 +637,11 @@ function saveB() {
       .then(result => {
         if (result.committed) {
           b.patientId = result.snapshot.val();
+          b.patientCode = formatPid(b.patientId);
           globalPatientId = b.patientId + 1;
         } else {
           b.patientId = globalPatientId++;
+          b.patientCode = formatPid(b.patientId);
           pushGlobalPatientId();
         }
         pushItem(roomIdx, key, idx, b);
@@ -646,6 +650,7 @@ function saveB() {
       })
       .catch(() => {
         b.patientId = globalPatientId++;
+        b.patientCode = formatPid(b.patientId);
         pushGlobalPatientId();
         pushItem(roomIdx, key, idx, b);
         logChange('登録', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
@@ -673,6 +678,7 @@ function checkoutB() {
   const ageVal = document.getElementById('fage').value;
   const record = {
     patientId:  b.patientId ?? null,
+    patientCode: b.patientCode ?? null,
     name:       document.getElementById('fname').value.trim() || b.name,
     age:        ageVal !== '' ? Number(ageVal) : (b.age ?? null),
     gender:     document.getElementById('fgender').value || b.gender || null,
@@ -689,14 +695,14 @@ function checkoutB() {
   pushDischarge(record);
 
   const outDetail = [
-    record.patientId ? 'P-' + record.patientId : null,
+    pidShort(record) || null,
     record.name || null,
     record.triage,
     record.stayMins != null ? `滞在${record.stayMins}分` : null,
   ].filter(Boolean).join(' / ');
   logChange('退室', slotLabel(roomIdx, kind, b), outDetail);
 
-  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
+  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
   setSyncStatus('syncing');
   pushItem(roomIdx, key, idx, b);
   closeM(); renderAll();
@@ -737,11 +743,12 @@ function moveB() {
   dest.age      = ageVal !== '' ? Number(ageVal) : null;
   dest.gender   = document.getElementById('fgender').value;
   dest.patientId = b.patientId;
+  dest.patientCode = b.patientCode ?? null;
   dest.enteredAt = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
 
   const fromLabel = slotLabel(roomIdx, kind, b);
 
-  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.age=null; b.gender='';
+  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
 
   setSyncStatus('syncing');
   pushItems([
@@ -766,6 +773,7 @@ function tick() {
 
 // ─── 起動（認証が通ってから） ─────────────────────────
 requireAuth('救護所 ベッド・椅子コントロール', () => {
+  subscribeFestival(() => renderAll());
   renderTabs(); renderAll(); setInterval(tick,1000); tick(); subscribeAll();
 });
 </script>

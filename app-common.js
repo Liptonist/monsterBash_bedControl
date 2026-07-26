@@ -5,7 +5,7 @@
 //   true                                  … 一般ユーザー（旧形式・互換のため残す）
 //   { name: "山田太郎", admin: true }      … 表示名つき。admin:true は管理者
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, get }
+import { getDatabase, ref, push, get, onValue }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
          getRedirectResult, onAuthStateChanged, signOut,
@@ -28,6 +28,32 @@ export const db   = getDatabase(app);
 export const auth = getAuth(app);
 
 export const emailKey = e => (e || '').trim().toLowerCase().replace(/\./g, ',');
+
+// ─── 開催年と開催日（患者IDの採番に使う） ────────────
+// kyuugo/festival = { year: 2026, day: 1 }
+// day は開催初日が1、翌日が2。日次の締めで繰り上がる。
+export const festival = {year: new Date().getFullYear(), day: 1};
+
+export function subscribeFestival(onChange) {
+  onValue(ref(db, 'kyuugo/festival'), snap => {
+    const v = snap.val() || {};
+    festival.year = Number(v.year) || new Date().getFullYear();
+    festival.day  = Number(v.day)  || 1;
+    if (onChange) onChange(festival);
+  }, e => console.warn('festival:', e));
+}
+
+// 患者ID。例: 2026-1-001（年 - 開催日 - 連番3桁）
+export const formatPid = (seq, year = festival.year, day = festival.day) =>
+  `${year}-${day}-${String(seq).padStart(3, '0')}`;
+
+// 保存用の患者ID。記録済みのコードを優先し、旧データは従来表記にする
+export const pidText = r =>
+  (r && r.patientCode) ? r.patientCode : (r && r.patientId ? 'P-' + r.patientId : '');
+
+// 画面表示用。煩雑さを避けるため先頭の年を省く（2026-1-001 → 1-001）。
+// データ側には年を含んだままの値を保存する。
+export const pidShort = r => pidText(r).replace(/^\d{4}-/, '');
 
 // ログイン中のユーザー情報。requireAuth が通ったあとに中身が入る
 // name は表示用に解決済みの名前（許可リスト → Googleプロフィール → 未設定）

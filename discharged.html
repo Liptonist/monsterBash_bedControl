@@ -44,6 +44,23 @@ tr:hover td{background:#fafafa}
 .trash-section{margin-top:24px}
 .trash-heading{font-size:13px;font-weight:600;color:#888;margin-bottom:8px;padding-top:14px;border-top:1px solid #e0e0e0}
 .trash-wrap{opacity:.7}
+.close-section{margin-top:28px;padding-top:16px;border-top:1px solid #e0e0e0}
+.close-h{font-size:13px;font-weight:600;color:#888;margin-bottom:10px}
+.close-body{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px}
+.close-now{font-size:13px;margin-bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.mono{font-family:monospace;background:#f1f3f4;border-radius:4px;padding:1px 6px;font-size:12px}
+.link-btn{background:none;border:none;color:#3b82f6;font-size:11.5px;cursor:pointer;text-decoration:underline;padding:0}
+.fest-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;font-size:12.5px;color:#555}
+.fest-form input{width:80px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;margin-left:4px}
+.btn-sm{background:none;border:1px solid #d0d0d0;color:#555;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+.btn-sm:hover{background:#f5f5f5}
+.close-desc{font-size:12px;color:#777;line-height:1.8;margin-bottom:12px}
+.btn-close{background:#d97706;border:none;color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:8px;cursor:pointer}
+.btn-close:hover{background:#b45309}
+.btn-close:disabled{opacity:.5;cursor:default}
+.msg{border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px;display:none;word-break:break-all}
+.msg.err{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e;display:block}
+.msg.ok{background:#e8f5e9;border:1px solid #b7e0ba;color:#256029;display:block}
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
 .offline-banner.show{display:block}
 </style>
@@ -85,11 +102,38 @@ tr:hover td{background:#fafafa}
     <div class="trash-heading">🗑️ ゴミ箱（<span id="trash-count">0</span>件）</div>
     <div class="trash-wrap" id="trash-area"></div>
   </div>
+
+  <!-- 日次の締め（管理者のみ） -->
+  <div class="close-section" id="close-section" style="display:none">
+    <div class="close-h">📦 日次の締め</div>
+    <div class="close-body">
+      <div class="close-now">
+        現在の開催日：<b id="fest-now">—</b>
+        　患者ID：<span id="fest-sample" class="mono">—</span>
+        <button class="link-btn" id="fest-edit">開催年・日を修正</button>
+      </div>
+      <div class="fest-form" id="fest-form" style="display:none">
+        <label>開催年 <input type="number" id="fest-year" min="2000" max="2100" step="1"></label>
+        <label>開催日 <input type="number" id="fest-day" min="1" max="10" step="1"></label>
+        <button class="btn-sm" id="fest-save">保存</button>
+        <button class="btn-sm" id="fest-cancel">やめる</button>
+      </div>
+      <div class="close-desc">
+        その日の <b>退室済み一覧</b> と <b>ゴミ箱</b> をまとめて保存し、この画面から消します。
+        患者IDの連番は1に戻り、開催日が1つ進みます（翌日は <span class="mono" id="fest-next">—</span> から）。
+        保存した内容は「保存済みの記録」ページでいつでも見られます。
+      </div>
+      <div class="msg" id="close-msg"></div>
+      <button class="btn-close" id="btn-close-day">この日を締める</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
-import { ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { db, requireAuth, logChange, trackWrite } from './app-common.js';
+import { ref, onValue, set, remove, update, get }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { db, me, requireAuth, logChange, trackWrite,
+         festival, subscribeFestival, pidShort } from './app-common.js';
 
 let allRecords = [];
 
@@ -172,7 +216,7 @@ function recordRowHTML(r, action) {
   if (action === 'trash') actionCell = `<td><button class="del-btn" onclick="moveToTrash('${r._key}')" title="ゴミ箱に移動">🗑️</button></td>`;
   else if (action === 'restore') actionCell = `<td><button class="restore-btn" onclick="restoreFromTrash('${r._key}')" title="一覧に戻す">↩️ 戻す</button></td>`;
   return `<tr>
-    <td>${r.patientId ? `<span class="pid">P-${r.patientId}</span>` : '—'}</td>
+    <td>${pidShort(r) ? `<span class="pid">${pidShort(r)}</span>` : '—'}</td>
     <td>${r.name || '—'}</td>
     <td>${r.sym || '—'}</td>
     <td><span class="room-badge">${r.room||'—'}</span></td>
@@ -244,7 +288,7 @@ function recLabel(r) {
 }
 function recDetail(r) {
   return [
-    r.patientId ? 'P-' + r.patientId : null,
+    pidShort(r) || null,
     r.name || null,
     r.triage || null,
     r.stayMins != null ? `滞在${r.stayMins}分` : null,
@@ -261,8 +305,143 @@ function countRoom(records, room) {
   return records.filter(r => r.room === room).length;
 }
 
+// ─── 日次の締め（管理者のみ） ────────────────────────
+const $c = id => document.getElementById(id);
+
+function renderFestival() {
+  // 画面には年を省いた形で出す（保存されるIDには年が入る）
+  $c('fest-now').textContent = `${festival.year}年 ${festival.day}日目`;
+  $c('fest-sample').textContent = `${festival.day}-001`;
+  $c('fest-next').textContent   = `${festival.day + 1}-001`;
+}
+
+function closeMsg(text, kind) {
+  const el = $c('close-msg');
+  el.className = 'msg ' + kind;
+  el.textContent = text;
+}
+
+// 入室中（空きでない）の枠数を数える
+function countOccupied(roomsVal) {
+  const asArray = v => Array.isArray(v) ? v : Object.values(v || {});
+  let n = 0;
+  asArray(roomsVal).forEach(room => {
+    ['beds', 'chairsIn', 'chairsOut'].forEach(k => {
+      asArray(room && room[k]).forEach(it => {
+        if (it && it.status && it.status !== 'empty') n++;
+      });
+    });
+  });
+  return n;
+}
+
+async function closeDay() {
+  $c('close-msg').className = 'msg';
+  const key = `${festival.year}-${festival.day}`;
+
+  let existing, roomsVal;
+  try {
+    [existing, roomsVal] = await Promise.all([
+      get(ref(db, 'kyuugo/archives/' + key)),
+      get(ref(db, 'kyuugo/rooms')),
+    ]);
+  } catch (e) {
+    closeMsg('確認できませんでした: ' + (e.code || e.message), 'err'); return;
+  }
+
+  if (existing.exists()) {
+    closeMsg(`${key} はすでに保存済みです。開催年・日を修正してからやり直してください。`, 'err');
+    return;
+  }
+
+  const occupied = countOccupied(roomsVal.val());
+  const lines = [
+    `${festival.year}年 ${festival.day}日目 を締めます。`,
+    '',
+    `退室済み: ${allRecords.length}件`,
+    `ゴミ箱:   ${trashRecords.length}件`,
+    '',
+    'これらを保存済みの記録に移し、この画面から消します。',
+    `患者IDの連番は1に戻り、翌日は ${festival.year}-${festival.day + 1}-001 から始まります。`,
+  ];
+  if (occupied > 0) {
+    lines.push('',
+      `⚠️ 入室中の枠が ${occupied} 件あります。`,
+      'この患者は今日のIDを持ったまま翌日に残るため、番号が重複する可能性があります。',
+      '先に退室処理をしてから締めることをおすすめします。');
+  }
+  lines.push('', '実行してよろしいですか？');
+  if (!confirm(lines.join('\n'))) return;
+
+  const btn = $c('btn-close-day');
+  btn.disabled = true;
+  try {
+    // 保存・消去・採番リセット・日付繰り上げを1回の更新でまとめて行う
+    const updates = {};
+    updates['kyuugo/archives/' + key] = {
+      year: festival.year,
+      day: festival.day,
+      label: `${festival.year}年 ${festival.day}日目`,
+      archivedAt: Date.now(),
+      archivedBy: me.name,
+      dischargedCount: allRecords.length,
+      trashCount: trashRecords.length,
+      discharged: allRecords.length
+        ? Object.fromEntries(allRecords.map(({_key, ...v}) => [_key, v])) : null,
+      discharged_trash: trashRecords.length
+        ? Object.fromEntries(trashRecords.map(({_key, ...v}) => [_key, v])) : null,
+    };
+    updates['kyuugo/discharged'] = null;
+    updates['kyuugo/discharged_trash'] = null;
+    updates['kyuugo/globalPatientId'] = 0;
+    updates['kyuugo/festival/day'] = festival.day + 1;
+
+    await trackWrite(update(ref(db), updates));
+    logChange('日次の締め', `${festival.year}年 ${festival.day}日目`,
+      `退室済み${allRecords.length}件 / ゴミ箱${trashRecords.length}件`);
+    closeMsg(`${key} を保存しました。次の患者IDは ${festival.year}-${festival.day + 1}-001 からです。`, 'ok');
+  } catch (e) {
+    console.warn('closeDay:', e);
+    closeMsg('締められませんでした: ' + (e.code || e.message), 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveFestival() {
+  const y = Number($c('fest-year').value);
+  const d = Number($c('fest-day').value);
+  if (!Number.isInteger(y) || y < 2000 || y > 2100) { closeMsg('開催年が正しくありません。', 'err'); return; }
+  if (!Number.isInteger(d) || d < 1 || d > 10)      { closeMsg('開催日が正しくありません。', 'err'); return; }
+  try {
+    await trackWrite(update(ref(db, 'kyuugo/festival'), {year: y, day: d}));
+    logChange('開催年・日の変更', `${y}年 ${d}日目`, '');
+    $c('fest-form').style.display = 'none';
+    closeMsg(`開催年・日を ${y}年 ${d}日目 に変更しました。`, 'ok');
+  } catch (e) {
+    closeMsg('変更できませんでした: ' + (e.code || e.message), 'err');
+  }
+}
+
+function setupCloseSection() {
+  if (!me.admin) return;              // 締めは管理者のみ
+  $c('close-section').style.display = '';
+  $c('btn-close-day').addEventListener('click', closeDay);
+  $c('fest-edit').addEventListener('click', () => {
+    $c('fest-year').value = festival.year;
+    $c('fest-day').value  = festival.day;
+    $c('fest-form').style.display = '';
+  });
+  $c('fest-cancel').addEventListener('click', () => { $c('fest-form').style.display = 'none'; });
+  $c('fest-save').addEventListener('click', saveFestival);
+}
+
 // ─── 起動（認証が通ってから） ─────────────────────────
-requireAuth('📋 退室済み一覧', subscribeAll);
+requireAuth('📋 退室済み一覧', () => {
+  subscribeFestival(renderFestival);
+  setupCloseSection();
+  subscribeAll();
+});
 </script>
 </body>
 </html>
