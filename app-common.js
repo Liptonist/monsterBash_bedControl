@@ -160,6 +160,13 @@ function showAuth(mode, opts = {}) {
     pw.style.display = '';
     if (opts.ok) { okEl.style.display = ''; okEl.textContent = opts.ok; }
     if (opts.message) { err.style.display = ''; err.textContent = opts.message; }
+    // アプリ内ブラウザではGoogleログインが完了できないことがあるため先に案内する
+    if (inAppBrowser() && !opts.message) {
+      note.style.display = '';
+      note.textContent = 'アプリ内ブラウザ（LINEなど）で開いているようです。'
+        + 'Googleログインが完了できない場合は、右上のメニューからSafariやChromeで開き直すか、'
+        + '配布されたIDとパスワードでログインしてください。';
+    }
   } else if (mode === 'denied') {
     sub.textContent = 'このアカウントには利用権限がありません。';
     err.style.display = '';
@@ -186,6 +193,54 @@ function showAuth(mode, opts = {}) {
   }
 }
 
+// ─── ブラウザのストレージ制限まわり ──────────────────
+// Googleログインのリダイレクト方式は、いったん Firebase 側のドメイン
+// （monster-bash-2026-medical.firebaseapp.com）へ移動して戻ってくる。
+// このとき元の画面が sessionStorage に置いた状態を読み直す必要があるが、
+// アプリ内ブラウザ（LINE・Instagram等）やプライベートモード、
+// ストレージが分離される最近のブラウザでは読み出せず、
+// "Unable to process request due to missing initial state..." で失敗する。
+// この場合はポップアップ方式かID/パスワードでログインしてもらう。
+const BROWSER_STORAGE_MSG =
+  'このブラウザではGoogleログインを完了できませんでした。'
+  + 'アプリ内ブラウザ（LINEやInstagramなど）やプライベートモードでは、'
+  + 'ログイン中の情報が保存されず失敗することがあります。'
+  + 'SafariやChromeで開き直すか、配布されたIDとパスワードでログインしてください。';
+
+// LINE等のアプリ内ブラウザか（ポップアップが塞がれやすい環境）
+const inAppBrowser = () =>
+  /\bLine\/|FBAN|FBAV|Instagram|MicroMessenger|KAKAOTALK|; wv\)/i.test(navigator.userAgent || '');
+
+const isStorageAuthError = e => {
+  const s = (e?.code || '') + ' ' + (e?.message || '');
+  return /missing-initial-state|missing initial state|web-storage-unsupported|sessionStorage/i.test(s);
+};
+
+// sessionStorage が使えるか（プライベートモード等では例外になる）
+function sessionStorageOk() {
+  try {
+    const k = '__mb_probe';
+    sessionStorage.setItem(k, '1');
+    sessionStorage.removeItem(k);
+    return true;
+  } catch (e) { return false; }
+}
+
+// リダイレクト方式を始めた印。戻ってきたのに結果が空なら失敗と判断する。
+// sessionStorage 自体が消える環境も想定して localStorage にも残す。
+const REDIRECT_FLAG = 'mb_auth_redirect';
+const setStore = (s, v) => { try { v === null ? s.removeItem(REDIRECT_FLAG) : s.setItem(REDIRECT_FLAG, v); } catch (e) {} };
+const getStore = s => { try { return s.getItem(REDIRECT_FLAG); } catch (e) { return null; } };
+
+function markRedirect()  { setStore(sessionStorage, '1'); setStore(localStorage, String(Date.now())); }
+function clearRedirect() { setStore(sessionStorage, null); setStore(localStorage, null); }
+function redirectPending() {
+  if (getStore(sessionStorage)) return true;
+  const t = Number(getStore(localStorage));
+  // 古い印は無視する（10分以内に始めたものだけを対象にする）
+  return !!t && Date.now() - t < 10 * 60 * 1000;
+}
+
 // Firebaseのエラーコードを日本語にする。原因を追えるよう元のコードも併記する
 function authErrText(e) {
   const c = e?.code || '';
@@ -204,11 +259,17 @@ function jaAuthMessage(c, e) {
     'auth/email-already-in-use':  'このメールアドレスのアカウントは既に存在します。',
     'auth/weak-password':         'パスワードは6文字以上にしてください。',
     'auth/operation-not-allowed': 'Firebaseコンソールで「メール/パスワード」を有効化してください。',
+    'auth/unauthorized-domain':   'このドメインからのログインは許可されていません（Firebaseコンソールの承認済みドメインを確認してください）。',
+    'auth/popup-blocked':         'ポップアップがブロックされました。',
+    'auth/cancelled-popup-request':'ログイン画面を開き直してください。',
+    'auth/web-storage-unsupported': BROWSER_STORAGE_MSG,
+    'auth/missing-initial-state':   BROWSER_STORAGE_MSG,
     'PERMISSION_DENIED':          'データベースの権限がありません（管理者以外は登録できません）。',
   };
   if (map[c]) return map[c];
   // Realtime Database 側の権限エラーはコード名が異なる
   if (/permission_denied/i.test(e?.message || '')) return map['PERMISSION_DENIED'];
+  if (isStorageAuthError(e)) return BROWSER_STORAGE_MSG;
   return e?.message || String(e);
 }
 
@@ -290,15 +351,39 @@ export { authErrText };
 async function doLogin() {
   ovl.querySelector('#auth-btn').disabled = true;
   const provider = new GoogleAuthProvider();
+  // 複数アカウントを使い分ける人のために、毎回アカウント選択を出す
+  provider.setCustomParameters({prompt: 'select_account'});
+
   try {
     await signInWithPopup(auth, provider);
+    return;                       // 成功。以降は onAuthStateChanged が受け持つ
   } catch (e) {
-    // ポップアップが塞がれる環境（アプリ内ブラウザ等）ではリダイレクト方式にする
-    if (e && /popup-blocked|popup-closed-by-user|operation-not-supported/.test(e.code || '')) {
-      try { await signInWithRedirect(auth, provider); return; }
-      catch (e2) { showAuth('error', {message: (e2.code || '') + ' ' + (e2.message || '')}); return; }
+    console.warn(e);
+    // 利用者が自分で閉じた場合は、そのままログイン画面に戻すだけにする
+    if (/popup-closed-by-user|cancelled-popup-request/.test(e.code || '')) {
+      showAuth('login');
+      return;
     }
-    showAuth('error', {message: (e.code || '') + ' ' + (e.message || '')});
+    // ポップアップが塞がれる環境（アプリ内ブラウザ等）以外はここで終わり
+    if (!/popup-blocked|operation-not-supported/.test(e.code || '')) {
+      showAuth('error', {message: authErrText(e)});
+      return;
+    }
+  }
+
+  // ここから先はポップアップが使えなかった場合のリダイレクト方式。
+  // sessionStorage が使えないブラウザでは必ず失敗するので、試さずに案内する。
+  if (!sessionStorageOk()) {
+    showAuth('login', {message: BROWSER_STORAGE_MSG});
+    return;
+  }
+  try {
+    markRedirect();
+    await signInWithRedirect(auth, provider);
+  } catch (e2) {
+    clearRedirect();
+    console.warn(e2);
+    showAuth('error', {message: authErrText(e2)});
   }
 }
 
@@ -334,9 +419,19 @@ export function requireAuth(title, onReady, adminOnly = false) {
   mountAuthUi(title);
 
   let started = false;
+  let redirectMsg = null;   // リダイレクト方式の失敗理由。一度出したら消す
 
   onAuthStateChanged(auth, async user => {
-    if (!user) { showAuth('login'); return; }
+    if (!user) {
+      if (redirectMsg === null) {
+        showAuth('working', {text: 'ログイン状態を確認しています...'});
+        redirectMsg = await redirectCheck;
+      }
+      const msg = redirectMsg;
+      redirectMsg = '';
+      showAuth('login', msg ? {message: msg} : {});
+      return;
+    }
 
     showAuth('working', {text: '権限を確認しています...'});
 
@@ -400,8 +495,22 @@ export function requireAuth(title, onReady, adminOnly = false) {
   });
 }
 
-// リダイレクト方式で戻ってきた場合の結果を拾う
-getRedirectResult(auth).catch(e => console.warn(e));
+// リダイレクト方式で戻ってきた場合の結果を拾う。
+// 失敗（多くはブラウザのストレージ制限）はログイン画面で伝えたいので、
+// 握りつぶさずに理由を残しておく。
+const redirectCheck = getRedirectResult(auth).then(
+  res => {
+    // 印が残ったままリダイレクトから戻り、結果も空＝ログインが完了していない
+    const failed = !res && redirectPending();
+    clearRedirect();
+    return failed ? BROWSER_STORAGE_MSG : '';
+  },
+  e => {
+    console.warn(e);
+    clearRedirect();
+    return authErrText(e);
+  }
+);
 
 // ─── 保存状態の表示と、保存完了までの画面遷移の抑止 ──────
 // Firebaseへの書き込みが確定するまでメッセージを出し、その間は
