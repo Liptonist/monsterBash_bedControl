@@ -115,11 +115,15 @@ td{padding:9px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align
 
 <script type="module">
 import { ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { db, me, emailKey, readProfile, requireAuth, logChange,
+import { db, me, emailKey, readProfile, requireAuth, logChange, NO_NAME,
          createPasswordAccount, changePasswordAs, sendResetEmail,
          authErrText } from './app-common.js';
 
 const $ = id => document.getElementById(id);
+
+// 変更履歴の「対象」に出す名前。履歴にメールアドレスは残さない
+// （history.html 側も画面・HTMLにアドレスを出さない方針で揃えている）
+const logName = n => (n || '').trim() || NO_NAME;
 
 function showMsg(text, kind) {
   const el = $('msg');
@@ -253,7 +257,7 @@ async function addUser() {
     if (!name && !admin && !pass) payload.name = '';   // 空オブジェクトは保存できないため
     await set(ref(db, 'kyuugo/allowedUsers/' + key), payload);
 
-    logChange('ユーザー追加', email,
+    logChange('ユーザー追加', logName(name),
       [admin ? '管理者' : '一般', pass ? 'ID/パスワード' : 'Googleログイン'].join(' / '));
     $('in-email').value = $('in-name').value = $('in-pass').value = '';
     $('in-admin').checked = false;
@@ -315,7 +319,7 @@ async function savePassword() {
       await set(ref(db, 'kyuugo/allowedUsers/' + u.key + '/authType'), 'password')
         .catch(e => console.warn('authType:', e));
     }
-    logChange('パスワード変更', u.email, '');   // パスワードそのものは記録しない
+    logChange('パスワード変更', logName(u.name), '');   // パスワードそのものは記録しない
     closePwModal();
     showMsg(`${u.email} のパスワードを変更しました。新しいパスワードを本人にお渡しください。`, 'ok');
   } catch (e) {
@@ -344,7 +348,7 @@ async function resetPassword(key) {
   if (!confirm(`${u.email} 宛にパスワード再設定メールを送ります。よろしいですか？`)) return;
   try {
     await sendResetEmail(u.email);
-    logChange('パスワード再設定メール送信', u.email, '');
+    logChange('パスワード再設定メール送信', logName(u.name), '');
     showMsg(u.email + ' 宛に再設定メールを送りました。', 'ok');
   } catch (e) {
     showMsg('送信できませんでした: ' + authErrText(e), 'err');
@@ -365,7 +369,7 @@ async function removeUser(key) {
 
   try {
     await remove(ref(db, 'kyuugo/allowedUsers/' + key));
-    logChange('ユーザー削除', u.email, u.admin ? '管理者' : '一般');
+    logChange('ユーザー削除', logName(u.name), u.admin ? '管理者' : '一般');
     showRemovedMsg(u.email);
   } catch (e) {
     showMsg('削除できませんでした: ' + (e.code || e.message), 'err');
