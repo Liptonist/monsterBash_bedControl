@@ -5,46 +5,58 @@
 
     "kyuugo": {
       "allowedUsers": {
-        ".read": "auth != null",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).child('admin').val() === true"
+        ".read": "(auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')) || (auth != null && !data.exists())",
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+
+        "$key": {
+          ".read": "auth != null && auth.token.email != null && $key === auth.token.email.toLowerCase().replace('.', ',')"
+        }
       },
 
       "festival": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).child('admin').val() === true"
+        ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')"
       },
 
       "archives": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).child('admin').val() === true"
+        ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')"
       },
 
       "auditLog": {
-        ".read": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
+        ".read": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
         "$entry": {
-          ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists() && !data.exists() && newData.exists()",
+          ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && !data.exists() && newData.exists()",
           ".validate": "newData.hasChildren(['at', 'email', 'action']) && newData.child('email').val() === auth.token.email"
         }
       },
 
       "rooms": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()"
+        ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')"
       },
 
       "globalPatientId": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()"
+        ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')"
       },
 
       "discharged": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()"
+        ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+
+        "$key": {
+          ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && (newData.exists() || root.child('kyuugo/discharged_trash').child($key).exists())"
+        }
       },
 
       "discharged_trash": {
-        ".read":  "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()",
-        ".write": "auth != null && root.child('kyuugo/allowedUsers').child(auth.token.email.replace('.', ',')).exists()"
+        ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+
+        "$key": {
+          ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && (newData.exists() || root.child('kyuugo/discharged').child($key).exists())"
+        }
       }
     }
   }

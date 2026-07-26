@@ -163,8 +163,10 @@ function showAuth(mode, opts = {}) {
   } else if (mode === 'denied') {
     sub.textContent = 'このアカウントには利用権限がありません。';
     err.style.display = '';
-    err.innerHTML = 'ログイン中: <b></b><br>管理者に許可リストへの追加を依頼してください。';
+    err.innerHTML = 'ログイン中: <b></b><br><span></span>';
     err.querySelector('b').textContent = opts.email || '';
+    err.querySelector('span').textContent =
+      opts.reason || '管理者に許可リストへの追加を依頼してください。';
     out.style.display = '';
   } else if (mode === 'setup') {
     sub.textContent = '許可リスト（kyuugo/allowedUsers）がまだ未設定です。';
@@ -337,14 +339,41 @@ export function requireAuth(title, onReady, adminOnly = false) {
     if (!user) { showAuth('login'); return; }
 
     showAuth('working', {text: '権限を確認しています...'});
+
+    // 許可リストは自分の1件だけを読む。全体はスタッフの氏名・メールアドレス・
+    // 権限の一覧なので、管理者以外には読ませない（ルール側でも制限している）。
     let prof;
     try {
-      const snap = await get(ref(db, 'kyuugo/allowedUsers'));
-      if (!snap.exists()) { showAuth('setup', {email: user.email}); return; }
-      prof = readProfile(snap.child(emailKey(user.email)).val());
-      if (!prof.allowed) { showAuth('denied', {email: user.email}); return; }
+      const mine = await get(ref(db, 'kyuugo/allowedUsers/' + emailKey(user.email)));
+      prof = readProfile(mine.val());
     } catch (e) {
       showAuth('error', {message: '許可リストを確認できませんでした: ' + (e.code || e.message || e)});
+      return;
+    }
+
+    if (!prof.allowed) {
+      // 「まだ誰も登録されていない（初期設定）」と「登録されていない（権限なし）」を
+      // 区別する。許可リストが空のときだけ全体を読めるルールにしてある。
+      let listEmpty = false;
+      try { listEmpty = !(await get(ref(db, 'kyuugo/allowedUsers'))).exists(); }
+      catch (e) { listEmpty = false; }   // 読めない＝リストは存在する＝権限なし
+      showAuth(listEmpty ? 'setup' : 'denied', {email: user.email});
+      return;
+    }
+
+    // ログイン方式が許可リストの登録内容と一致するかを検証する。
+    // Googleログイン用として登録されたメールアドレスに対して、第三者が勝手に
+    // パスワード認証情報を作ってログインする乗っ取りを防ぐ。
+    // 同じ条件を database.rules.json 側でも検証している（こちらは案内のため）。
+    let signInProvider = '';
+    try { signInProvider = (await user.getIdTokenResult()).signInProvider || ''; }
+    catch (e) { console.warn('getIdTokenResult:', e); }
+    if (signInProvider !== 'google.com' && prof.authType !== 'password') {
+      showAuth('denied', {
+        email: user.email,
+        reason: 'このメールアドレスはGoogleログイン用として登録されています。'
+              + 'Googleでログインしてください。',
+      });
       return;
     }
 
