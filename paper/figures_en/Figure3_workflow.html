@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Figure 3. Clinical workflow and screen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .f3-canvas {
+    padding: 6mm 8mm;
+    display: flex;
+    flex-direction: column;
+    gap: 5mm;
+  }
+
+  .f3-top {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 5mm;
+  }
+  .flow-col .fc-title {
+    font-size: 9.5pt;
+    font-weight: 700;
+    padding: 3px 8px;
+    border: 0.6pt solid #000;
+    background: #eaeaea;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .flow-step {
+    display: grid;
+    grid-template-columns: 12mm 1fr;
+    gap: 4px;
+    margin-bottom: 5px;
+    border: 0.5pt solid #000;
+    background: #fff;
+  }
+  .flow-step .fs-num {
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11pt;
+    font-family: monospace;
+  }
+  .flow-step .fs-body {
+    padding: 5px 8px 6px;
+    font-size: 8.5pt;
+    line-height: 1.5;
+  }
+  .flow-step .fs-body .fs-hd {
+    font-weight: 700;
+    font-size: 9.5pt;
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .flow-step .fs-body .fs-op {
+    font-size: 7.5pt;
+    color: #333;
+    font-family: monospace;
+  }
+  .flow-step .fs-body p { font-size: 8pt; line-height: 1.45;}
+
+  .arrow-down {
+    text-align: center;
+    font-size: 12pt;
+    margin: 2px 0;
+    color: #000;
+  }
+
+  /* 右：画面キャプチャ縮小版 */
+  .ui-panel {
+    border: 0.6pt solid #000;
+    padding: 6px 8px 8px;
+    background: #fff;
+  }
+  .ui-panel .up-title {
+    font-size: 9.5pt;
+    font-weight: 700;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+    border-bottom: 0.5pt solid #000;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .ui-panel .up-title .up-sub {
+    font-size: 7.5pt;
+    font-weight: 400;
+    color: #333;
+    font-family: monospace;
+  }
+
+  /* UI縮小 mock */
+  .mock {
+    border: 0.5pt solid #000;
+    background: #fff;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .mock .mk-hdr {
+    padding: 3px 6px;
+    border-bottom: 0.3pt solid #666;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 7pt;
+    background: #f5f5f5;
+  }
+  .mock .mk-hdr b { font-weight: 700; font-size: 7.5pt;}
+  .mock .mk-tabs {
+    display: flex;
+    border-bottom: 0.3pt solid #666;
+    background: #fff;
+  }
+  .mock .mk-tab {
+    padding: 2px 8px;
+    font-size: 7pt;
+    border-right: 0.3pt solid #ccc;
+  }
+  .mock .mk-tab.on {
+    background: #000;
+    color: #fff;
+    font-weight: 700;
+  }
+  .mock .mk-body {
+    padding: 5px 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .mock .mk-body .col-lbl {
+    grid-column: 1 / -1;
+    font-size: 7pt;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .mock .bed, .mock .chair {
+    border: 0.4pt solid #000;
+    padding: 3px 4px;
+    font-size: 6.5pt;
+    line-height: 1.3;
+    background: #fff;
+    min-height: 8mm;
+  }
+  .mock .bed .b-lbl { font-weight: 700; font-size: 7pt;}
+  .mock .bed .b-name { font-weight: 700; font-size: 7pt; margin-top: 1px;}
+  .mock .bed .b-sym { font-size: 6pt; color: #333;}
+
+  /* トリアージ表現 (モノクロ・パターン) */
+  .tri-empty { background: #fff; }
+  .tri-green { background: #f0f0f0; }
+  .tri-yellow {
+    background:
+      repeating-linear-gradient(45deg, transparent 0 3pt, rgba(0,0,0,.18) 3pt 4pt),
+      #fff;
+  }
+  .tri-red {
+    background:
+      repeating-linear-gradient(45deg, rgba(0,0,0,.35) 0 1.5pt, transparent 1.5pt 3pt),
+      #fff;
+  }
+
+  /* 凡例(トリアージ) */
+  .tri-legend {
+    margin-top: 6px;
+    border-top: 0.3pt dotted #666;
+    padding-top: 4px;
+    display: flex;
+    gap: 10px;
+    font-size: 7.5pt;
+  }
+  .tri-legend .item {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .tri-legend .sw {
+    width: 10pt; height: 8pt; border: 0.4pt solid #000;
+  }
+
+  /* 下段：帰結 */
+  .outcome {}
+  .outcome .out-title {
+    font-size: 9.5pt;
+    font-weight: 700;
+    padding: 3px 8px;
+    border: 0.6pt solid #000;
+    background: #eaeaea;
+    margin-bottom: 5px;
+  }
+  .outcome-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .outcome-grid .card {
+    border: 0.5pt solid #000;
+    padding: 6px 8px;
+    background: #fff;
+  }
+  .outcome-grid .card .oc-hd {
+    font-weight: 700;
+    font-size: 8.5pt;
+    padding-bottom: 3px;
+    margin-bottom: 3px;
+    border-bottom: 0.3pt solid #000;
+  }
+  .outcome-grid .card p { font-size: 8pt; line-height: 1.5;}
+</style>
+</head>
+<body>
+
+<div class="figure-page">
+  <div class="fig-header">
+    <div class="journal">Acute Medicine &amp; Surgery ｜ Original Article</div>
+    <div class="authors">Authors and affiliations (to be inserted)</div>
+  </div>
+
+  <div class="fig-num">Figure 3.</div>
+  <div class="fig-title">Clinical workflow for a single patient and the corresponding management screen</div>
+
+  <div class="fig-canvas f3-canvas">
+
+    <div class="f3-top">
+
+    <!-- ═══ 左：フロー ═══ -->
+    <div class="flow-col">
+      <div class="fc-title">A. Clinical workflow per patient</div>
+
+      <div class="flow-step">
+        <div class="fs-num">1</div>
+        <div class="fs-body">
+          <div class="fs-hd">Admission and triage <span class="fs-op">write &rarr; rooms/</span></div>
+          <p>A vacant bed or chair is selected and the name, age, sex, presenting complaint and triage category (minor / moderate / severe) are entered. The patient identifier (year&ndash;festival day&ndash;serial number) is allocated server-side.</p>
+        </div>
+      </div>
+      <div class="arrow-down">↓</div>
+
+      <div class="flow-step">
+        <div class="fs-num">2</div>
+        <div class="fs-body">
+          <div class="fs-hd">Change of status / transfer <span class="fs-op">atomic update</span></div>
+          <p>A change of triage category, a move between bed and chair, or a transfer to another aid station is applied in a single operation while the patient identifier is retained. The destination write and the clearing of the source slot commit together.</p>
+        </div>
+      </div>
+      <div class="arrow-down">↓</div>
+
+      <div class="flow-step">
+        <div class="fs-num">3</div>
+        <div class="fs-body">
+          <div class="fs-hd">Discharge <span class="fs-op">rooms &rarr; discharged/</span></div>
+          <p>Length of stay is calculated automatically and stored as a discharge record. The slot returns to vacant immediately and is available for the next patient.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 右：UI キャプチャ ═══ -->
+    <div class="ui-panel">
+      <div class="up-title">
+        B. Management screen (reduced, monochrome rendering)
+        <span class="up-sub">index.html &middot; aid station A</span>
+      </div>
+
+      <div class="mock">
+        <div class="mk-hdr">
+          <b>Aid station bed and chair control</b>
+          <span>2026 Day 1 ｜ ● synchronised</span>
+        </div>
+        <div class="mk-tabs">
+          <div class="mk-tab on">Station A</div>
+          <div class="mk-tab">Station B</div>
+          <div class="mk-tab">Station C</div>
+          <div class="mk-tab">Station D</div>
+        </div>
+        <div class="mk-body">
+          <div class="col-lbl">Beds</div>
+          <div class="bed tri-empty">
+            <div class="b-lbl">B1</div>
+            <div class="b-name" style="color:#666">vacant</div>
+          </div>
+          <div class="bed tri-green">
+            <div class="b-lbl">B2 ｜ minor</div>
+            <div class="b-name">Patient A</div>
+            <div class="b-sym">suspected heat illness</div>
+          </div>
+          <div class="bed tri-yellow">
+            <div class="b-lbl">B3 ｜ moderate</div>
+            <div class="b-name">Patient B</div>
+            <div class="b-sym">dehydration, vomiting</div>
+          </div>
+          <div class="bed tri-red">
+            <div class="b-lbl">B4 ｜ severe</div>
+            <div class="b-name">Patient C</div>
+            <div class="b-sym">impaired consciousness</div>
+          </div>
+
+          <div class="col-lbl">Indoor chairs / outdoor chairs</div>
+          <div class="chair tri-green">
+            <div class="b-lbl">CI1 ｜ minor</div>
+            <div class="b-name">Patient D</div>
+            <div class="b-sym">heat illness, observation</div>
+          </div>
+          <div class="chair tri-empty">
+            <div class="b-lbl">CI2</div>
+            <div class="b-name" style="color:#666">vacant</div>
+          </div>
+          <div class="chair tri-yellow">
+            <div class="b-lbl">CO1 ｜ awaiting pick-up</div>
+            <div class="b-name">Patient E</div>
+            <div class="b-sym">fit for discharge, awaiting escort</div>
+          </div>
+          <div class="chair tri-empty">
+            <div class="b-lbl">CO2</div>
+            <div class="b-name" style="color:#666">vacant</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tri-legend">
+        <span style="font-weight:700; font-size:7.5pt">Triage display:</span>
+        <div class="item"><div class="sw tri-empty"></div>vacant</div>
+        <div class="item"><div class="sw tri-green"></div>minor</div>
+        <div class="item"><div class="sw tri-yellow"></div>moderate</div>
+        <div class="item"><div class="sw tri-red"></div>severe</div>
+      </div>
+    </div>
+
+    </div><!-- /.f3-top -->
+
+    <!-- ═══ 下段：帰結 ═══ -->
+    <div class="outcome">
+      <div class="out-title">C. Consequences of using the system, compared with the previous paper-based workflow</div>
+      <div class="outcome-grid">
+        <div class="card">
+          <div class="oc-hd">(i) Immediacy of information sharing</div>
+          <p>Previously, bed availability at another aid station was established verbally by telephone or two-way radio. With the system, every screen is updated automatically without any request being made.</p>
+        </div>
+        <div class="card">
+          <div class="oc-hd">(ii) Elimination of duplicate entry</div>
+          <p>Occupancy no longer has to be recorded on paper and transcribed afterwards. Length of stay is calculated at the moment of discharge.</p>
+        </div>
+        <div class="card">
+          <div class="oc-hd">(iii) Visualisation of triage</div>
+          <p>Each bed and chair is colour-coded as minor, moderate or severe (shown here as fill patterns), which makes the distribution of severity apparent at a glance.</p>
+        </div>
+        <div class="card">
+          <div class="oc-hd">(iv) Completeness of the record</div>
+          <p>Every operation is written to an append-only audit log, so the record can be reviewed afterwards without the transcription gaps and legibility problems of paper.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="fig-caption">
+    <span class="cap-label">Figure 3.</span>
+    Clinical workflow for a single patient (A), the corresponding management screen (B, rendered in monochrome), and the consequences of operating the system compared with the previous paper-based workflow (C). Each patient passes through three stages: admission and triage, change of status or transfer, and discharge. The screen comprises tabs for switching between aid stations, a list of bed and chair states, and a visual representation of triage category; the same data can be viewed and edited from any device.
+    <span class="cap-note">
+      The screen shown here has been reduced and re-rendered in monochrome for print; in use, triage categories are shown as red, amber and green on a white background. Patient names are fictitious and shown for illustration only.
+    </span>
+  </div>
+</div>
+
+</body>
+</html>

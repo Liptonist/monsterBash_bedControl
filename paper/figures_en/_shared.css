@@ -1,0 +1,194 @@
+/* ============================================
+   Journal of JAAM 論文投稿用 Figure 共通スタイル
+   完全モノクロ・A4横 印刷対応
+   ============================================ */
+
+@page {
+  size: A4 landscape;
+  margin: 15mm 15mm 15mm 15mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: #ffffff;
+  color: #000;
+  font-family: 'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  /* 画面表示時は薄い背景でカードが浮くよう見せる */
+  background: #ececec;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.figure-page {
+  background: #fff;
+  width: 267mm;          /* A4 横 297mm - 余白 30mm */
+  min-height: 200mm;
+  padding: 12mm 14mm 10mm;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  display: flex;
+  flex-direction: column;
+}
+
+@media print {
+  body { background: #fff; padding: 0; }
+  .figure-page {
+    box-shadow: none;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+  }
+}
+
+/* ─── ヘッダ ─────────────────────────── */
+.fig-header {
+  border-bottom: 0.6pt solid #000;
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 9pt;
+  color: #333;
+}
+.fig-header .journal {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.fig-header .authors {
+  font-style: italic;
+  color: #555;
+}
+
+/* ─── フィギュアタイトル ───────────────── */
+.fig-num {
+  font-size: 12pt;
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+}
+.fig-title {
+  font-size: 13pt;
+  font-weight: 700;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+/* ─── 描画エリア ─────────────────────── */
+.fig-canvas {
+  flex: 1;
+  border: 0.6pt solid #000;
+  background: #fff;
+  padding: 14px 16px 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ─── キャプション ─────────────────────── */
+.fig-caption {
+  margin-top: 10px;
+  font-size: 9.5pt;
+  line-height: 1.65;
+  color: #000;
+  text-align: justify;
+  hyphens: auto;
+}
+.fig-caption .cap-label {
+  font-weight: 700;
+  margin-right: 6px;
+}
+.fig-caption .cap-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 8.5pt;
+  color: #333;
+  padding-top: 5px;
+  border-top: 0.4pt dotted #999;
+}
+
+/* ─── 凡例（描画内） ────────────────────── */
+.legend {
+  position: absolute;
+  background: #fff;
+  border: 0.5pt solid #000;
+  padding: 6px 10px 6px 10px;
+  font-size: 8.5pt;
+  line-height: 1.6;
+}
+.legend .lg-title {
+  font-weight: 700;
+  font-size: 8.5pt;
+  margin-bottom: 3px;
+  padding-bottom: 2px;
+  border-bottom: 0.3pt solid #000;
+}
+.legend .lg-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 1px 0;
+}
+.legend .lg-key {
+  width: 28px; height: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.legend .lg-lbl { color: #000; }
+
+/* ─── 共通ボックス（ノード） ───────────── */
+.node {
+  position: absolute;
+  background: #fff;
+  border: 0.6pt solid #000;
+  padding: 6px 10px;
+  font-size: 9pt;
+  text-align: center;
+  line-height: 1.35;
+}
+.node.thick { border-width: 1.2pt; }
+.node.dashed { border-style: dashed; }
+.node .n-t {
+  font-weight: 700;
+  font-size: 9.5pt;
+  display: block;
+}
+.node .n-s {
+  font-size: 8pt;
+  color: #333;
+  display: block;
+  margin-top: 1px;
+}
+
+/* パターン塗り（モノクロ区別用） */
+.pat-diag {
+  background:
+    repeating-linear-gradient(45deg, #000 0 0.5pt, transparent 0.5pt 4pt),
+    #fff;
+}
+.pat-dot {
+  background-image: radial-gradient(#000 0.6pt, transparent 0.7pt);
+  background-size: 5pt 5pt;
+}
+.pat-grid {
+  background:
+    repeating-linear-gradient(0deg,  rgba(0,0,0,.35) 0 0.3pt, transparent 0.3pt 5pt),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.35) 0 0.3pt, transparent 0.3pt 5pt),
+    #fff;
+}
+.pat-gray1 { background: #f0f0f0; }
+.pat-gray2 { background: #d8d8d8; }
+.pat-gray3 { background: #b0b0b0; color: #000; }
+
+/* SVGオーバーレイ */
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
