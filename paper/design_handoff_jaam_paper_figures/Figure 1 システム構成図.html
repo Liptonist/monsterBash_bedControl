@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Figure 1. システム構成図</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_共通スタイル.css">
+<style>
+  /* Figure 1：flex縦積み、絶対配置は使わない */
+  .f1-canvas {
+    padding: 8mm 10mm;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ─── 段1：4救護所 ─── */
+  .row-clinics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5mm;
+  }
+  .clinic {
+    border: 0.6pt solid #000;
+    padding: 5px 8px 6px;
+    background: #fff;
+    text-align: center;
+  }
+  .clinic .c-hd {
+    font-size: 9.5pt;
+    font-weight: 700;
+    padding-bottom: 3px;
+    border-bottom: 0.4pt solid #000;
+    margin-bottom: 5px;
+  }
+  .clinic .c-hd .c-sub {
+    font-size: 8pt;
+    color: #333;
+    font-weight: 400;
+    display: block;
+    margin-top: 1px;
+  }
+  .clinic .devs {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+  }
+  .dev {
+    width: 7mm; height: 9mm;
+    border: 0.5pt solid #000;
+    border-radius: 1pt;
+    position: relative;
+    background: #fff;
+  }
+  .dev::before {
+    content: "";
+    position: absolute;
+    inset: 1pt 1pt 3pt 1pt;
+    background: #f2f2f2;
+    border: 0.3pt solid #999;
+  }
+  .dev::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0.6pt;
+    transform: translateX(-50%);
+    width: 3pt; height: 1pt;
+    background: #666;
+    border-radius: 0.5pt;
+  }
+  .clinic .cnt {
+    font-size: 8pt;
+    margin-top: 4px;
+    color: #000;
+    font-weight: 500;
+  }
+
+  /* ─── 破線矢印バンド（救護所 → 認証層） ─── */
+  .arrows-band {
+    height: 8mm;
+    position: relative;
+  }
+  .arrows-band .arr-col {
+    position: absolute;
+    top: 0;
+    width: 0;
+    height: 100%;
+    border-left: 0.7pt dashed #000;
+  }
+  .arrows-band .arr-col .arr-head {
+    position: absolute;
+    bottom: -1pt;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 3pt solid transparent;
+    border-right: 3pt solid transparent;
+    border-top: 4pt solid #000;
+  }
+  .arrows-band .col1 { left: 12.5%;}
+  .arrows-band .col2 { left: 37.5%;}
+  .arrows-band .col3 { left: 62.5%;}
+  .arrows-band .col4 { left: 87.5%;}
+
+  /* ─── 段2：認証層 ─── */
+  .auth-band {
+    border: 0.6pt dashed #000;
+    padding: 6px 12px;
+    background: #fafafa;
+    display: grid;
+    grid-template-columns: auto 1fr 1fr 1fr;
+    gap: 6mm;
+    align-items: center;
+  }
+  .auth-band .ab-t {
+    font-weight: 700;
+    font-size: 9pt;
+    padding: 3px 10px;
+    border: 0.4pt solid #000;
+    background: #fff;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .auth-band .ab-item {
+    font-size: 8.5pt;
+    color: #000;
+    line-height: 1.4;
+  }
+  .auth-band .ab-item b {
+    font-weight: 700;
+    display: inline-block;
+    margin-right: 4px;
+  }
+
+  /* ─── 実線矢印バンド（認証層 → DB） ─── */
+  .arrows-band2 {
+    height: 8mm;
+    position: relative;
+  }
+  .arrows-band2 .arr-col {
+    position: absolute;
+    top: 0;
+    width: 0;
+    height: 100%;
+    border-left: 0.9pt solid #000;
+  }
+  .arrows-band2 .arr-col .arr-head {
+    position: absolute;
+    bottom: -1pt;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 3.5pt solid transparent;
+    border-right: 3.5pt solid transparent;
+    border-top: 5pt solid #000;
+  }
+  .arrows-band2 .colL { left: 35%;}
+  .arrows-band2 .colR { left: 65%;}
+
+  /* ─── 段3：DB ─── */
+  .backend {
+    margin: 0 20mm;
+    border: 1.2pt solid #000;
+    padding: 8px 14px 10px;
+    background: #fff;
+  }
+  .backend .b-hd {
+    font-size: 11pt;
+    font-weight: 700;
+    text-align: center;
+    padding-bottom: 5px;
+    border-bottom: 0.5pt solid #000;
+    margin-bottom: 8px;
+  }
+  .backend .b-hd .en {
+    font-size: 8.5pt;
+    font-weight: 400;
+    color: #333;
+    display: block;
+    margin-top: 2px;
+    letter-spacing: 0.03em;
+    font-family: monospace;
+  }
+  .backend .b-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 5px;
+  }
+  .backend .b-cell {
+    border: 0.4pt solid #666;
+    padding: 5px 4px 6px;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .backend .b-cell b {
+    font-weight: 700;
+    font-size: 9pt;
+    display: block;
+    font-family: monospace;
+    margin-bottom: 2px;
+  }
+  .backend .b-cell span { color: #333; font-size: 8pt;}
+
+  /* ─── 点線矢印（DB → 監査ログ） ─── */
+  .arrows-band3 {
+    height: 8mm;
+    position: relative;
+  }
+  .arrows-band3 .arr-col {
+    position: absolute;
+    top: 0; right: 22%;
+    width: 0;
+    height: 100%;
+    border-left: 0.5pt dotted #000;
+  }
+  .arrows-band3 .arr-col .arr-head {
+    position: absolute;
+    bottom: -1pt;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 3pt solid transparent;
+    border-right: 3pt solid transparent;
+    border-top: 4pt solid #000;
+  }
+
+  /* ─── 段4：補足 ─── */
+  .bottom-row {
+    margin-top: 4mm;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 4mm;
+  }
+  .b-audit, .b-staff, .b-legend {
+    border: 0.5pt solid #000;
+    padding: 6px 9px 7px;
+    background: #fff;
+    font-size: 8.5pt;
+    line-height: 1.55;
+  }
+  .b-audit { border-style: dotted; }
+  .b-audit .a-hd, .b-staff .a-hd, .b-legend .a-hd {
+    font-weight: 700;
+    font-size: 9pt;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+    border-bottom: 0.3pt solid #000;
+  }
+  .b-audit p, .b-staff p { font-size: 8.5pt; color: #000; line-height: 1.55;}
+  .b-staff b { font-weight: 700;}
+
+  .b-legend .lg-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 1px 0;
+    font-size: 8.5pt;
+  }
+  .b-legend .lg-key {
+    width: 26pt; height: 10pt;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="figure-page">
+  <div class="fig-header">
+    <div class="journal">Journal of Japanese Association for Acute Medicine｜原著論文</div>
+    <div class="authors">著者名・所属（投稿時記載）</div>
+  </div>
+
+  <div class="fig-num">Figure 1.</div>
+  <div class="fig-title">大規模野外音楽フェスティバル救護所におけるリアルタイム傷病者管理システムの構成</div>
+
+  <div class="fig-canvas f1-canvas">
+
+    <!-- 段1：4救護所 -->
+    <div class="row-clinics">
+      <div class="clinic">
+        <div class="c-hd">救護所A <span class="c-sub">「本部」</span></div>
+        <div class="devs"><div class="dev"></div><div class="dev"></div><div class="dev"></div><div class="dev"></div></div>
+        <div class="cnt">医師 4名</div>
+      </div>
+      <div class="clinic">
+        <div class="c-hd">救護所B <span class="c-sub">「空海横」</span></div>
+        <div class="devs"><div class="dev"></div><div class="dev"></div><div class="dev"></div><div class="dev"></div></div>
+        <div class="cnt">医師 4名</div>
+      </div>
+      <div class="clinic">
+        <div class="c-hd">救護所C <span class="c-sub">「サーカス」</span></div>
+        <div class="devs"><div class="dev"></div><div class="dev"></div><div class="dev"></div></div>
+        <div class="cnt">医師 4名</div>
+      </div>
+      <div class="clinic">
+        <div class="c-hd">救護所D <span class="c-sub">「茶堂」</span></div>
+        <div class="devs"><div class="dev"></div><div class="dev"></div><div class="dev"></div></div>
+        <div class="cnt">医師 3名</div>
+      </div>
+    </div>
+
+    <!-- 破線矢印バンド -->
+    <div class="arrows-band">
+      <div class="arr-col col1"><div class="arr-head"></div></div>
+      <div class="arr-col col2"><div class="arr-head"></div></div>
+      <div class="arr-col col3"><div class="arr-head"></div></div>
+      <div class="arr-col col4"><div class="arr-head"></div></div>
+    </div>
+
+    <!-- 段2：認証層 -->
+    <div class="auth-band">
+      <div class="ab-t">認証層</div>
+      <div class="ab-item"><b>①</b>Firebase Authentication ID + パスワード認証</div>
+      <div class="ab-item"><b>②</b>許可ユーザ名簿 (allowedUsers) 照合</div>
+      <div class="ab-item"><b>③</b>管理者権限 (admin flag) 判定</div>
+    </div>
+
+    <!-- 実線矢印バンド -->
+    <div class="arrows-band2">
+      <div class="arr-col colL"><div class="arr-head"></div></div>
+      <div class="arr-col colR"><div class="arr-head"></div></div>
+    </div>
+
+    <!-- 段3：DB -->
+    <div class="backend">
+      <div class="b-hd">
+        クラウド共有データベース
+        <span class="en">Firebase Realtime Database (kyuugo/)</span>
+      </div>
+      <div class="b-body">
+        <div class="b-cell"><b>rooms/</b><span>4救護所の<br>ベッド・椅子状態</span></div>
+        <div class="b-cell"><b>discharged/</b><span>退所記録<br>（滞在時間含む）</span></div>
+        <div class="b-cell"><b>archives/</b><span>過去年度<br>アーカイブ</span></div>
+      </div>
+    </div>
+
+    <!-- 点線矢印（DB → 監査ログ） -->
+    <div class="arrows-band3">
+      <div class="arr-col"><div class="arr-head"></div></div>
+    </div>
+
+    <!-- 段4：補足 -->
+    <div class="bottom-row">
+      <div class="b-staff">
+        <div class="a-hd">参加医師 総計 15名</div>
+        <p>4救護所に分散配置。同時ログイン端末は最大15。<b>全員が同一データを閲覧・編集可能</b>で、統括役や中央管制の設置を要しない水平的な情報共有構造を採る。</p>
+      </div>
+      <div class="b-legend">
+        <div class="a-hd">凡例</div>
+        <div class="lg-row">
+          <div class="lg-key">
+            <svg width="26" height="10"><line x1="1" y1="5" x2="22" y2="5" stroke="#000" stroke-width="0.9"/><polygon points="22,2 26,5 22,8" fill="#000"/></svg>
+          </div>
+          <span>データ通信</span>
+        </div>
+        <div class="lg-row">
+          <div class="lg-key">
+            <svg width="26" height="10"><line x1="1" y1="5" x2="22" y2="5" stroke="#000" stroke-width="0.7" stroke-dasharray="2 1.4"/><polygon points="22,2 26,5 22,8" fill="#000"/></svg>
+          </div>
+          <span>認証・権限判定</span>
+        </div>
+        <div class="lg-row">
+          <div class="lg-key">
+            <svg width="26" height="10"><line x1="1" y1="5" x2="22" y2="5" stroke="#000" stroke-width="0.6" stroke-dasharray="0.7 1.4"/><polygon points="22,2 26,5 22,8" fill="#000"/></svg>
+          </div>
+          <span>監査ログ記録</span>
+        </div>
+      </div>
+      <div class="b-audit">
+        <div class="a-hd">監査ログ auditLog/</div>
+        <p>DB上の全書き込み操作を、時刻・実施者・対象と共に<b>自動記録</b>。後日の症例集計・研究利用・インシデント検証に用いる。</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="fig-caption">
+    <span class="cap-label">Figure 1.</span>
+    本システムの全体構成。4カ所に分散配置された救護所の医師端末（計15台想定）は、単一のクラウドデータベース（Firebase Realtime Database）を共有する。各端末からのアクセスは、①本人認証、②許可ユーザ名簿への登録、③操作種別に応じた権限判定、の3層で制御される。データベース内は用途別に階層化されており（<code style="font-family:monospace;font-size:9pt">rooms/</code>：現在の傷病者収容状況、<code style="font-family:monospace;font-size:9pt">discharged/</code>：退所記録、<code style="font-family:monospace;font-size:9pt">archives/</code>：過年度データ）、すべての書き込み操作は監査ログ (<code style="font-family:monospace;font-size:9pt">auditLog/</code>) に自動記録される。
+    <span class="cap-note">
+      対象イベント：野外音楽フェスティバル「Monster Bash」（2日間開催・来場者数 約50,000名／救護所4カ所・参加医師15名）。本システムは既存のWebブラウザ上で動作し、専用アプリケーションや現地サーバを必要としない。
+    </span>
+  </div>
+</div>
+
+</body>
+</html>
