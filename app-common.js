@@ -536,6 +536,133 @@ document.addEventListener('click', e => {
   renderToast(pending > 0 ? 'saving' : 'error');
 });
 
+// ─── アプリ情報（このアプリについて） ──────────────────
+// 名称・バージョン・コピーライト・修正履歴の置き場所はここだけ。
+// 修正を出すときは APP_INFO.version と CHANGELOG の先頭を一緒に更新する。
+export const APP_INFO = {
+  name:      '救護所 ベッド・椅子コントロール',
+  repo:      'monsterBash_bedControl',
+  version:   '0.9.0',
+  copyright: '© 2026 佐藤容平',
+  note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
+           + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
+};
+
+// 修正履歴。新しいものを先頭に足す。
+export const CHANGELOG = [
+  {version: '0.9.0', date: '2026-08-01', items: [
+    'アプリの名称・バージョン・修正履歴を見られる「このアプリについて」を追加',
+    '退室済みの患者を、間違えて退室した場合にベッド・椅子へ戻せるようにした',
+  ]},
+  {version: '0.8.0', date: '2026-07-26', items: [
+    '二日間開催に対応。日次の締めと、締めて保存した記録を見る画面を追加',
+    '患者IDを「開催年 - 何日目 - 連番3桁」の形式に変更',
+    'メイン画面のタイトル横に開催年と何日目かを表示',
+    '許可リストは自分の1件だけを読むようにし、ログイン方式の検証を追加',
+  ]},
+  {version: '0.7.0', date: '2026-07-25', items: [
+    'Googleアカウントでのログインと、許可リストによるアクセス制限を追加',
+    'Googleアカウントを持たない人向けに、ID／パスワードでのログインを併用可能に',
+    'ユーザー管理画面（追加・削除・パスワード変更）を追加',
+    '誰がいつ何を変更したかの変更履歴を記録・閲覧できるようにした',
+    '保存がサーバーに届くまで「保存中」を表示し、その間の画面移動を待つようにした',
+  ]},
+  {version: '0.6.0', date: '2026-07-23', items: [
+    '救護室に「サーカス」を追加し、4部屋構成に対応',
+    'GitHub Pages での公開（本番と動作確認用）を開始',
+  ]},
+  {version: '0.5.0', date: '2026-07-12', items: [
+    '編集画面から別のベッド・椅子へ移動する機能を追加',
+    '年齢・性別の入力と表示を追加',
+    '退室済み一覧にゴミ箱（削除と復帰）を追加',
+    'トリアージの表記を色名から「軽症・中等症・重症」に変更',
+    'スマートフォンの縦画面でのレイアウト崩れを修正',
+  ]},
+  {version: '0.1.0', date: '2026-07-08', items: [
+    '初版。部屋ごとのベッド・椅子の状態表示と、患者の登録・退室',
+  ]},
+];
+
+const ABOUT_CSS = `
+.about-ovl{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:160;display:none;
+  align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
+.about-ovl.show{display:flex}
+.about-card{background:#fff;border-radius:14px;border:1px solid #e0e0e0;width:360px;
+  max-width:100%;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.about-head{padding:14px 16px;border-bottom:1px solid #e0e0e0;display:flex;
+  justify-content:space-between;align-items:flex-start;gap:8px}
+.about-name{font-size:15px;font-weight:600;line-height:1.5}
+.about-repo{font-size:11px;color:#888;margin-top:2px}
+.about-x{background:none;border:none;cursor:pointer;color:#888;font-size:18px;line-height:1;padding:2px}
+.about-body{padding:14px 16px;max-height:62vh;overflow-y:auto}
+.about-ver{display:inline-block;font-size:12px;font-weight:600;color:#1e40af;background:#eff6ff;
+  border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px}
+.about-note{font-size:12px;color:#555;line-height:1.8;margin-top:10px}
+.about-sec{font-size:11px;font-weight:600;color:#666;margin:18px 0 8px}
+.about-log{border-left:2px solid #e5e7eb;padding-left:11px}
+.about-rel{margin-bottom:13px}
+.about-rel:last-child{margin-bottom:0}
+.about-relhead{font-size:12px;font-weight:600;color:#1a1a1a}
+.about-date{font-size:11px;color:#888;font-weight:400;margin-left:6px}
+.about-items{list-style:none;margin:4px 0 0;padding:0}
+.about-items li{font-size:11.5px;color:#555;line-height:1.8;padding-left:12px;position:relative}
+.about-items li::before{content:'・';position:absolute;left:0;color:#aaa}
+.about-foot{padding:12px 16px;border-top:1px solid #e0e0e0;font-size:11px;color:#888;
+  text-align:center;line-height:1.8}
+`;
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let aboutOvl = null;
+
+function buildAbout() {
+  const st = document.createElement('style');
+  st.textContent = ABOUT_CSS;
+  document.head.appendChild(st);
+
+  aboutOvl = document.createElement('div');
+  aboutOvl.className = 'about-ovl';
+  aboutOvl.innerHTML = `
+<div class="about-card">
+  <div class="about-head">
+    <div>
+      <div class="about-name">${esc(APP_INFO.name)}</div>
+      <div class="about-repo">${esc(APP_INFO.repo)}</div>
+    </div>
+    <button class="about-x" type="button" aria-label="閉じる">✕</button>
+  </div>
+  <div class="about-body">
+    <span class="about-ver">バージョン ${esc(APP_INFO.version)}</span>
+    <div class="about-note">${esc(APP_INFO.note)}</div>
+    <div class="about-sec">修正履歴</div>
+    <div class="about-log">
+      ${CHANGELOG.map(r => `
+      <div class="about-rel">
+        <div class="about-relhead">v${esc(r.version)}<span class="about-date">${esc(r.date)}</span></div>
+        <ul class="about-items">${r.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div class="about-foot">${esc(APP_INFO.copyright)}</div>
+</div>`;
+
+  aboutOvl.querySelector('.about-x').addEventListener('click', hideAbout);
+  // 背景をタップしたら閉じる（カード内のクリックでは閉じない）
+  aboutOvl.addEventListener('click', e => { if (e.target === aboutOvl) hideAbout(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && aboutOvl.classList.contains('show')) hideAbout();
+  });
+  document.body.appendChild(aboutOvl);
+}
+
+function hideAbout() { aboutOvl.classList.remove('show'); }
+
+// 「このアプリについて」のポップアップを開く
+export function showAbout() {
+  if (!aboutOvl) buildAbout();
+  aboutOvl.classList.add('show');
+}
+
 /**
  * 変更履歴を kyuugo/auditLog に追記する。記録の失敗で本来の操作を止めない。
  * @param {string} action 操作の種類（例: 登録・編集、退室、移動）

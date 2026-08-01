@@ -227,6 +227,12 @@ python3 -m http.server 8000   # http://localhost:8000/index.html
 
 共通処理（Firebase初期化、ログイン、許可リスト判定、保存状態の表示、変更履歴の記録、患者IDの整形）は `app-common.js` にまとめてあります。各ページはここから import します。
 
+### バージョンと修正履歴
+
+メイン画面のタブ行にある **「ⓘ このアプリについて」** から、アプリの名称・バージョン・コピーライト・修正履歴をポップアップで表示します。
+
+表示内容は `app-common.js` の `APP_INFO`（名称・バージョン・コピーライト）と `CHANGELOG`（修正履歴）だけで決まります。修正を出すときは、`APP_INFO.version` を上げて `CHANGELOG` の先頭に項目を追加してください。ポップアップ自体は `showAbout()` を呼ぶだけで開くので、他のページに置くこともできます。
+
 ### デプロイ
 
 `.github/workflows/pages.yml` が GitHub Actions で動きます。
