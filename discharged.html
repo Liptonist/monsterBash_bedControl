@@ -41,6 +41,34 @@ tr:hover td{background:#fafafa}
 .del-btn:hover{background:#fee2e2}
 .restore-btn{background:none;border:1px solid #93c5fd;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;color:#1e40af;white-space:nowrap}
 .restore-btn:hover{background:#eff6ff}
+/* 操作欄：入室に戻す（緑の塗り）と ゴミ箱（赤の枠線）を見た目で区別する */
+.act-cell{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.reenter-btn{background:#16a34a;border:1px solid #15803d;border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:600;cursor:pointer;color:#fff;white-space:nowrap}
+.reenter-btn:hover{background:#15803d}
+.act-sep{width:1px;height:18px;background:#e0e0e0;flex-shrink:0}
+/* 入室に戻すモーダル */
+.ovl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-start;justify-content:center;padding:20px 12px;overflow-y:auto}
+.ovl.show{display:flex}
+.mdl{background:#fff;border-radius:14px;border:1px solid #e0e0e0;width:360px;max-width:100%;margin:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.mh{padding:14px 16px;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center}
+.mht{font-size:15px;font-weight:600}
+.xbtn{background:none;border:none;cursor:pointer;color:#888;font-size:18px;line-height:1;padding:2px}
+.mb{padding:14px 16px;display:flex;flex-direction:column;gap:11px}
+.mf{padding:12px 16px;border-top:1px solid #e0e0e0;display:flex;gap:8px;justify-content:flex-end}
+.lbl{font-size:11px;color:#666;margin-bottom:4px;font-weight:500}
+.finput{width:100%;font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;background:#fafafa;color:#1a1a1a}
+.finput:focus{outline:none;border-color:#3b82f6;background:#fff}
+.finput:disabled{background:#f0f0f0;color:#888}
+.re-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.re-sum{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:9px 11px;font-size:12.5px;line-height:1.8;color:#166534}
+.re-note{font-size:11.5px;color:#777;line-height:1.7}
+.re-orig{font-size:11.5px;line-height:1.7;color:#1e40af}
+.re-orig.busy{color:#b45309}
+.canbtn{background:none;border:1px solid #ccc;border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;color:#555}
+.canbtn:hover{background:#f0f0f0}
+.re-go{background:#16a34a;color:#fff;border:none;border-radius:6px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer}
+.re-go:hover{background:#15803d}
+.re-go:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed}
 .trash-section{margin-top:24px}
 .trash-heading{font-size:13px;font-weight:600;color:#888;margin-bottom:8px;padding-top:14px;border-top:1px solid #e0e0e0}
 .trash-wrap{opacity:.7}
@@ -131,11 +159,60 @@ tr:hover td{background:#fafafa}
   </div>
 </div>
 
+<!-- 入室に戻すモーダル（誤って退室にした患者を戻す） -->
+<div class="ovl" id="re-ovl">
+  <div class="mdl">
+    <div class="mh">
+      <span class="mht">🛏️ 入室に戻す</span>
+      <button class="xbtn" onclick="closeReenter()">✕</button>
+    </div>
+    <div class="mb">
+      <div class="re-sum" id="re-sum"></div>
+      <div class="re-note">誤って退室にした患者を、もう一度ベッド・椅子に入れます。退室記録は一覧から消え、ゴミ箱へ移ります。</div>
+      <div class="re-grid">
+        <div>
+          <div class="lbl">戻す部屋</div>
+          <select class="finput" id="re-room" onchange="onReenterPlaceChange()"></select>
+        </div>
+        <div>
+          <div class="lbl">種別</div>
+          <select class="finput" id="re-kind" onchange="onReenterPlaceChange()">
+            <option value="bed">ベッド</option>
+            <option value="chairIn">室内椅子</option>
+            <option value="chairOut">室外椅子</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <div class="lbl">戻す場所（空いている番号）</div>
+        <select class="finput" id="re-slot"></select>
+      </div>
+      <div class="re-orig" id="re-orig"></div>
+      <div class="msg" id="re-msg"></div>
+    </div>
+    <div class="mf">
+      <button class="canbtn" onclick="closeReenter()">キャンセル</button>
+      <button class="re-go" id="re-go" onclick="doReenter()">この場所へ戻す</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
-import { ref, onValue, set, remove, update, get }
+import { ref, onValue, set, remove, update, get, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, pidShort } from './app-common.js';
+
+// ─── 定数（index.html と揃える） ─────────────────────
+const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
+const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
+const KIND_LABEL  = {bed:'ベッド', chairIn:'室内椅子', chairOut:'室外椅子'};
+const KIND_MAP    = {bed:'beds', chairIn:'chairsIn', chairOut:'chairsOut'};
+// 退室記録の種別・トリアージは日本語で入っているので、枠の値に戻す
+const LABEL_KIND    = {'ベッド':'bed', '室内椅子':'chairIn', '室外椅子':'chairOut'};
+const TRIAGE_STATUS = {'軽症':'green', '中等症':'yellow', '重症':'red'};
+// 旧ステータス互換（Firebase上に旧データが残っている場合）
+const LEGACY = {used:'yellow', overtime:'red', waiting:'yellow'};
 
 let allRecords = [];
 
@@ -146,6 +223,29 @@ function tsToHHMM(ts) {
 }
 
 let trashRecords = [];
+// 入室に戻す先を選ぶために、ベッド・椅子の空き状況も見ておく
+let rooms = ROOMS.map(() => ({beds:[], chairsIn:[], chairsOut:[]}));
+
+const asArray = v => Array.isArray(v) ? v : Object.values(v || {});
+function normStatus(s) {
+  if (!s) return 'empty';
+  return LEGACY[s] || s;
+}
+// kyuugo/rooms は配列でもオブジェクトでも来るので、扱いやすい形に均す
+function readRooms(val) {
+  const src = asArray(val);
+  return ROOMS.map((_, ri) => {
+    const room = src[ri] || {};
+    const out = {};
+    Object.values(KIND_MAP).forEach(key => {
+      out[key] = asArray(room[key]).map((it, i) => ({
+        localId: i + 1,
+        status: normStatus(it && it.status),
+      }));
+    });
+    return out;
+  });
+}
 
 // 認証が通ってから購読を開始する（startApp から呼ばれる）
 function subscribeAll() {
@@ -173,6 +273,12 @@ function subscribeAll() {
       : [];
     renderTrash();
   });
+
+  onValue(ref(db, 'kyuugo/rooms'), snap => {
+    rooms = readRooms(snap.val());
+    // モーダルを開いている間に他の人が埋めた・空けた場合に追従する
+    if (reenterKey) { refreshSlotOptions(); renderOrigHint(); }
+  }, e => console.warn('rooms:', e));
 }
 
 function applyFilter() {
@@ -215,8 +321,12 @@ function recordRowHTML(r, action) {
   const stay = r.stayMins != null ? r.stayMins : '—';
   const stayClass = r.stayMins >= 30 ? 'stay long' : 'stay';
   let actionCell = '';
-  if (action === 'trash') actionCell = `<td><button class="del-btn" onclick="moveToTrash('${r._key}')" title="ゴミ箱に移動">🗑️</button></td>`;
-  else if (action === 'restore') actionCell = `<td><button class="restore-btn" onclick="restoreFromTrash('${r._key}')" title="一覧に戻す">↩️ 戻す</button></td>`;
+  if (action === 'trash') actionCell = `<td><div class="act-cell">
+      <button class="reenter-btn" onclick="openReenter('${r._key}')" title="ベッド・椅子に戻す（誤って退室にした場合）">🛏️ 入室に戻す</button>
+      <span class="act-sep"></span>
+      <button class="del-btn" onclick="moveToTrash('${r._key}')" title="ゴミ箱に移動">🗑️</button>
+    </div></td>`;
+  else if (action === 'restore') actionCell = `<td><button class="restore-btn" onclick="restoreFromTrash('${r._key}')" title="退室済み一覧に戻す">↩️ 一覧に戻す</button></td>`;
   return `<tr>
     <td>${pidShort(r) ? `<span class="pid">${pidShort(r)}</span>` : '—'}</td>
     <td>${r.name || '—'}</td>
@@ -274,7 +384,7 @@ function restoreFromTrash(key) {
   if (!confirm('この記録を一覧に戻しますか？')) return;
   const rec = trashRecords.find(r => r._key === key);
   if (!rec) return;
-  const { _key, trashedAt, ...data } = rec;
+  const { _key, trashedAt, reenteredTo, ...data } = rec;
   trackWrite(
     set(ref(db, 'kyuugo/discharged/' + key), data)
       .then(() => {
@@ -297,6 +407,190 @@ function recDetail(r) {
   ].filter(Boolean).join(' / ');
 }
 window.restoreFromTrash = restoreFromTrash;
+
+// ─── 入室に戻す（誤って退室にした患者を戻す） ──────────
+// ゴミ箱ボタンとは別物。こちらは患者をもう一度ベッド・椅子に入れる。
+let reenterKey = null;
+
+const $r = id => document.getElementById(id);
+
+// 記録の席ID（例 B3・CI2）から部屋内の並び順（0始まり）を出す
+function slotIndexOf(rec) {
+  const n = Number(String(rec.slotId || '').replace(/^\D+/, ''));
+  return Number.isInteger(n) && n > 0 ? n - 1 : null;
+}
+function origPlaceOf(rec) {
+  const roomIdx = ROOMS.indexOf(rec.room);
+  const kind = LABEL_KIND[rec.kind];
+  const idx = slotIndexOf(rec);
+  if (roomIdx < 0 || !kind || idx === null) return null;
+  return {roomIdx, kind, idx};
+}
+function placeLabel(roomIdx, kind, idx) {
+  return `${ROOMS[roomIdx]} ${KIND_LABEL[kind]}${KIND_PREFIX[kind]}${idx + 1}`;
+}
+function slotAt(roomIdx, kind, idx) {
+  const arr = rooms[roomIdx] && rooms[roomIdx][KIND_MAP[kind]];
+  return arr ? arr[idx] : undefined;
+}
+function isFree(roomIdx, kind, idx) {
+  const it = slotAt(roomIdx, kind, idx);
+  return !!it && it.status === 'empty';
+}
+
+function reMsg(text, kind) {
+  const el = $r('re-msg');
+  el.className = 'msg' + (kind ? ' ' + kind : '');
+  el.textContent = text || '';
+}
+
+// 選んだ部屋・種別の空き番号を並べ直す。
+// preferIdx を省くと今の選択を保つ（他の人の操作で一覧が変わったとき用）。
+// null を渡すと先頭の空きに戻す。
+function refreshSlotOptions(preferIdx) {
+  const roomIdx = Number($r('re-room').value) || 0;
+  const kind = $r('re-kind').value;
+  const arr = (rooms[roomIdx] && rooms[roomIdx][KIND_MAP[kind]]) || [];
+  const sel = $r('re-slot'), btn = $r('re-go');
+  const want = preferIdx !== undefined ? preferIdx
+             : (sel.value !== '' ? Number(sel.value) : null);
+  const empties = arr.map((it, i) => ({it, i})).filter(({it}) => it.status === 'empty');
+  if (empties.length === 0) {
+    sel.innerHTML = `<option value="">空きなし</option>`;
+    sel.disabled = true;
+    btn.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  btn.disabled = false;
+  sel.innerHTML = empties
+    .map(({it, i}) => `<option value="${i}">${KIND_PREFIX[kind]}${it.localId}</option>`).join('');
+  if (want != null && empties.some(e => e.i === want)) sel.value = String(want);
+}
+
+// 元いた場所の案内。空いていれば初期選択、埋まっていればその旨を出す
+function renderOrigHint() {
+  const rec = allRecords.find(r => r._key === reenterKey);
+  const el = $r('re-orig');
+  if (!rec) { el.textContent = ''; return; }
+  const orig = origPlaceOf(rec);
+  if (!orig) {
+    el.className = 're-orig busy';
+    el.textContent = '元の場所が記録から分かりませんでした。戻す場所を選んでください。';
+    return;
+  }
+  const label = placeLabel(orig.roomIdx, orig.kind, orig.idx);
+  if (isFree(orig.roomIdx, orig.kind, orig.idx)) {
+    el.className = 're-orig';
+    el.textContent = `元の場所：${label}（初期選択）`;
+  } else {
+    el.className = 're-orig busy';
+    el.textContent = `元の場所（${label}）は今ふさがっています。別の空きを選んでください。`;
+  }
+}
+
+function onReenterPlaceChange() { refreshSlotOptions(null); }
+window.onReenterPlaceChange = onReenterPlaceChange;
+
+function openReenter(key) {
+  const rec = allRecords.find(r => r._key === key);
+  if (!rec) return;
+  reenterKey = key;
+  reMsg('');
+
+  $r('re-sum').innerHTML = [
+    pidShort(rec) ? `<b>${pidShort(rec)}</b>` : '',
+    rec.name || '氏名未入力',
+    rec.sym || '',
+    `${tsToHHMM(rec.enteredAt)} 入室 → ${tsToHHMM(rec.exitedAt)} 退室`,
+  ].filter(Boolean).join(' ／ ');
+
+  $r('re-room').innerHTML =
+    ROOMS.map((n, i) => `<option value="${i}">${n}</option>`).join('');
+
+  // 初期値は元いた場所。分からなければ先頭の部屋・ベッドから探す
+  const orig = origPlaceOf(rec);
+  $r('re-room').value = String(orig ? orig.roomIdx : 0);
+  $r('re-kind').value = orig ? orig.kind : 'bed';
+  refreshSlotOptions(orig ? orig.idx : null);
+  renderOrigHint();
+
+  $r('re-ovl').classList.add('show');
+}
+window.openReenter = openReenter;
+
+function closeReenter() {
+  $r('re-ovl').classList.remove('show');
+  reenterKey = null;
+  reMsg('');
+}
+window.closeReenter = closeReenter;
+
+// 戻す枠に書き込む中身。index.html の itemPayload と同じ形にする
+function slotPayload(rec, idx) {
+  return {
+    localId:     idx + 1,
+    patientId:   rec.patientId ?? null,
+    patientCode: rec.patientCode ?? null,
+    status:      TRIAGE_STATUS[rec.triage] || 'green',
+    name:        rec.name || '',
+    sym:         rec.sym || '',
+    waiting:     false,
+    enteredAt:   rec.enteredAt ?? null,
+    age:         rec.age ?? null,
+    gender:      rec.gender || '',
+  };
+}
+
+async function doReenter() {
+  const rec = allRecords.find(r => r._key === reenterKey);
+  if (!rec) { closeReenter(); return; }
+  const roomIdx = Number($r('re-room').value) || 0;
+  const kind = $r('re-kind').value;
+  const idxStr = $r('re-slot').value;
+  if (idxStr === '') { reMsg('戻せる空きがありません。別の部屋・種別を選んでください。', 'err'); return; }
+  const idx = Number(idxStr);
+  const label = placeLabel(roomIdx, kind, idx);
+  const who = [pidShort(rec), rec.name || '氏名未入力'].filter(Boolean).join(' ');
+
+  if (!confirm(`${who} さんを ${label} に戻しますか？\n\n`
+             + `退室済み一覧からは消え、退室記録はゴミ箱へ移ります。`)) return;
+
+  const btn = $r('re-go');
+  btn.disabled = true;
+  reMsg('');
+  try {
+    // 空き確認と書き込みを一度に行い、他の人と同じ枠を取り合わないようにする
+    const res = await trackWrite(runTransaction(
+      ref(db, `kyuugo/rooms/${roomIdx}/${KIND_MAP[kind]}/${idx}`),
+      cur => {
+        if (cur && normStatus(cur.status) !== 'empty') return;   // 使用中なら中止
+        return slotPayload(rec, idx);
+      }
+    ));
+    if (!res.committed) {
+      reMsg(`${label} は直前に使われました。別の空きを選び直してください。`, 'err');
+      refreshSlotOptions(null);
+      renderOrigHint();
+      return;
+    }
+
+    // 退室記録はゴミ箱経由で片付ける（先にゴミ箱へ写さないと削除できない）
+    const { _key, ...data } = rec;
+    await trackWrite(set(ref(db, 'kyuugo/discharged_trash/' + _key),
+      {...data, trashedAt: Date.now(), reenteredTo: label}));
+    await trackWrite(remove(ref(db, 'kyuugo/discharged/' + _key)));
+
+    logChange('入室に戻す', label, recDetail(rec));
+    closeReenter();
+  } catch (e) {
+    console.warn('reenter:', e);
+    reMsg('戻せませんでした: ' + (e.code || e.message || e), 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+window.doReenter = doReenter;
 
 function avgStay(records) {
   const valid = records.filter(r => r.stayMins != null);
@@ -329,7 +623,6 @@ function closeMsg(text, kind) {
 
 // 入室中（空きでない）の枠数を数える
 function countOccupied(roomsVal) {
-  const asArray = v => Array.isArray(v) ? v : Object.values(v || {});
   let n = 0;
   asArray(roomsVal).forEach(room => {
     ['beds', 'chairsIn', 'chairsOut'].forEach(k => {
