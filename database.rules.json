@@ -9,36 +9,93 @@
         ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
 
         "$key": {
-          ".read": "auth != null && auth.token.email != null && $key === auth.token.email.toLowerCase().replace('.', ',')"
+          ".read": "auth != null && auth.token.email != null && $key === auth.token.email.toLowerCase().replace('.', ',')",
+          ".validate": "$key === $key.toLowerCase() && $key.contains('@') && !$key.contains(' ') && (newData.isBoolean() ? newData.val() === true : newData.hasChildren())",
+
+          "name":     { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "admin":    { ".validate": "newData.isBoolean()" },
+          "authType": { ".validate": "newData.isString() && newData.val() === 'password'" },
+          "$other":   { ".validate": false }
         }
       },
 
       "festival": {
         ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
-        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')"
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+
+        "year":   { ".validate": "newData.isNumber() && newData.val() >= 2000 && newData.val() <= 2999" },
+        "day":    { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 99" },
+        "$other": { ".validate": false }
       },
 
       "archives": {
         ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
-        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')"
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+
+        "$key": {
+          ".validate": "newData.hasChildren(['year', 'day', 'archivedAt'])",
+
+          "year":             { ".validate": "newData.isNumber() && newData.val() >= 2000 && newData.val() <= 2999" },
+          "day":              { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 99" },
+          "label":            { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "archivedAt":       { ".validate": "newData.isNumber()" },
+          "archivedBy":       { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "dischargedCount":  { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "trashCount":       { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "discharged":       { ".validate": true },
+          "discharged_trash": { ".validate": true },
+          "$other":           { ".validate": false }
+        }
       },
 
       "auditLog": {
         ".read": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+
         "$entry": {
           ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && !data.exists() && newData.exists()",
-          ".validate": "newData.hasChildren(['at', 'email', 'action']) && newData.child('email').val() === auth.token.email"
+          ".validate": "newData.hasChildren(['at', 'email', 'action'])",
+
+          "at":     { ".validate": "newData.isNumber()" },
+          "uid":    { ".validate": "newData.isString() && newData.val() === auth.uid" },
+          "email":  { ".validate": "newData.isString() && newData.val().toLowerCase() === auth.token.email.toLowerCase()" },
+          "name":   { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "action": { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "target": { ".validate": "newData.isString() && newData.val().length <= 200" },
+          "detail": { ".validate": "newData.isString() && newData.val().length <= 1000" },
+          "$other": { ".validate": false }
         }
       },
 
       "rooms": {
         ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
-        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')"
+
+        "$room": {
+          "$kind": {
+            ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && $room.matches(/^[0-9]$/) && ($kind === 'beds' || $kind === 'chairsIn' || $kind === 'chairsOut') && (newData.exists() || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true)",
+
+            "$idx": {
+              ".validate": "$idx.matches(/^[0-9]{1,2}$/) && newData.hasChildren(['localId', 'status'])",
+
+              "localId":     { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 40" },
+              "patientId":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999" },
+              "patientCode": { ".validate": "newData.isString() && newData.val().length <= 32" },
+              "status":      { ".validate": "newData.isString() && (newData.val() === 'empty' || newData.val() === 'green' || newData.val() === 'yellow' || newData.val() === 'red')" },
+              "name":        { ".validate": "newData.isString() && newData.val().length <= 100" },
+              "sym":         { ".validate": "newData.isString() && newData.val().length <= 1000" },
+              "waiting":     { ".validate": "newData.isBoolean()" },
+              "enteredAt":   { ".validate": "newData.isNumber()" },
+              "age":         { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200" },
+              "gender":      { ".validate": "newData.isString() && newData.val().length <= 20" },
+              "$other":      { ".validate": false }
+            }
+          }
+        }
       },
 
       "globalPatientId": {
         ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
-        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')"
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999"
       },
 
       "discharged": {
@@ -46,7 +103,23 @@
         ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
 
         "$key": {
-          ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && (newData.exists() || root.child('kyuugo/discharged_trash').child($key).exists())"
+          ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && ((!data.exists() && newData.exists()) || (!newData.exists() && root.child('kyuugo/discharged_trash').child($key).exists()))",
+
+          "patientId":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999" },
+          "patientCode": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "name":        { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "age":         { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200" },
+          "gender":      { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "sym":         { ".validate": "newData.isString() && newData.val().length <= 1000" },
+          "room":        { ".validate": "newData.isString() && newData.val().length <= 50" },
+          "slotId":      { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "kind":        { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "triage":      { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "enteredAt":   { ".validate": "newData.isNumber()" },
+          "exitedAt":    { ".validate": "newData.isNumber()" },
+          "stayMins":    { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "recordedAt":  { ".validate": "newData.isNumber()" },
+          "$other":      { ".validate": false }
         }
       },
 
@@ -55,7 +128,25 @@
         ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
 
         "$key": {
-          ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && (newData.exists() || root.child('kyuugo/discharged').child($key).exists())"
+          ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password') && ((!data.exists() && newData.exists()) || (!newData.exists() && root.child('kyuugo/discharged').child($key).exists()))",
+
+          "patientId":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999" },
+          "patientCode": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "name":        { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "age":         { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200" },
+          "gender":      { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "sym":         { ".validate": "newData.isString() && newData.val().length <= 1000" },
+          "room":        { ".validate": "newData.isString() && newData.val().length <= 50" },
+          "slotId":      { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "kind":        { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "triage":      { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "enteredAt":   { ".validate": "newData.isNumber()" },
+          "exitedAt":    { ".validate": "newData.isNumber()" },
+          "stayMins":    { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "recordedAt":  { ".validate": "newData.isNumber()" },
+          "trashedAt":   { ".validate": "newData.isNumber()" },
+          "reenteredTo": { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "$other":      { ".validate": false }
         }
       }
     }

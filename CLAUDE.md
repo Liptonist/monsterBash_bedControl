@@ -41,6 +41,19 @@ Legacy status values (`used`, `overtime`, `waiting`) are normalized to the curre
 
 Room/kind/status labels and prefixes (`ROOMS`, `KIND_PREFIX`, `KIND_LABEL`, `SL`) are the single source of truth for display strings — update these constants rather than hardcoding labels elsewhere.
 
+## Security rules
+
+`database.rules.json` is the real access-control boundary — the in-page login flow (`requireAuth()` in `app-common.js`) is only there to give people a decent error message, since anyone can talk to the database directly with the public `apiKey`. Any change to what the app reads or writes has to be mirrored there, including new fields: the rules whitelist known children and reject unknown ones.
+
+The rules are deployed by pasting the file into the Firebase console (there's no CI deploy). Before doing that, verify them locally — deploying broken rules locks every user out of a live first-aid station:
+
+```bash
+firebase emulators:start --only database --project monster-bash-test   # needs firebase-tools + Java
+node tools/rules-test.mjs                                              # in another terminal
+```
+
+`tools/rules-test.mjs` checks both directions: that forbidden operations are denied, and that every real app flow (受け入れ・移動・退室・ゴミ箱・締め・ユーザー管理) still goes through. Add a case there when you change the rules.
+
 ## Conventions
 
 - UI text and all data (patient names, symptoms) are Japanese; keep new UI strings consistent with the existing tone/terminology (e.g. 軽症/中等症/重症 for triage levels).
