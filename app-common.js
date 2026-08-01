@@ -542,7 +542,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '0.9.0',
+  version:   '0.9.1',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -550,6 +550,10 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '0.9.1', date: '2026-08-01', items: [
+    '退室済み一覧とゴミ箱に「重症度」の列を追加（軽症・中等症・重症を色付きで表示）',
+    'データベースのセキュリティルールに、書き込める内容の検証と削除権限の分離を追加',
+  ]},
   {version: '0.9.0', date: '2026-08-01', items: [
     'アプリの名称・バージョン・修正履歴を見られる「このアプリについて」を追加',
     '退室済みの患者を、間違えて退室した場合にベッド・椅子へ戻せるようにした',

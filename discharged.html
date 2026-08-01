@@ -35,6 +35,11 @@ tr:hover td{background:#fafafa}
 .pid{font-size:10px;padding:2px 6px;border-radius:4px;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-weight:500}
 .room-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;font-weight:500}
 .slot-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#f5f5f5;border:1px solid #ccc;color:#555;font-weight:500}
+/* 重症度。配色はメイン画面（index.html の .st-g/.st-y/.st-r）に合わせる */
+.tri{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;white-space:nowrap}
+.tri-green{background:#dcfce7;border:1px solid #86efac;color:#166534}
+.tri-yellow{background:#fef9c3;border:1px solid #fde047;color:#92400e}
+.tri-red{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b}
 .stay{font-weight:500;color:#374151}
 .stay.long{color:#dc2626}
 .del-btn{background:none;border:1px solid #fca5a5;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;color:#dc2626;line-height:1}
@@ -317,6 +322,20 @@ function renderTrash() {
       : tableHTML(trashRecords, 'restore');
 }
 
+// 患者名や症状はスタッフが入力した文字列なので、そのままHTMLに入れない
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+// 重症度。TRIAGE_STATUS が軽症→green・中等症→yellow・重症→red を持つ。
+// 記録が無い古いデータは「—」、想定外の値はそのまま文字で出す
+function triageHTML(r) {
+  const t = (r.triage || '').trim();
+  if (!t) return '—';
+  const cls = TRIAGE_STATUS[t];
+  return cls ? `<span class="tri tri-${cls}">${esc(t)}</span>` : esc(t);
+}
+
 function recordRowHTML(r, action) {
   const stay = r.stayMins != null ? r.stayMins : '—';
   const stayClass = r.stayMins >= 30 ? 'stay long' : 'stay';
@@ -328,12 +347,13 @@ function recordRowHTML(r, action) {
     </div></td>`;
   else if (action === 'restore') actionCell = `<td><button class="restore-btn" onclick="restoreFromTrash('${r._key}')" title="退室済み一覧に戻す">↩️ 一覧に戻す</button></td>`;
   return `<tr>
-    <td>${pidShort(r) ? `<span class="pid">${pidShort(r)}</span>` : '—'}</td>
-    <td>${r.name || '—'}</td>
-    <td>${r.sym || '—'}</td>
-    <td><span class="room-badge">${r.room||'—'}</span></td>
-    <td><span class="slot-badge">${r.slotId||'—'}</span></td>
-    <td>${r.kind||'—'}</td>
+    <td>${pidShort(r) ? `<span class="pid">${esc(pidShort(r))}</span>` : '—'}</td>
+    <td>${esc(r.name || '—')}</td>
+    <td>${esc(r.sym || '—')}</td>
+    <td><span class="room-badge">${esc(r.room||'—')}</span></td>
+    <td><span class="slot-badge">${esc(r.slotId||'—')}</span></td>
+    <td>${esc(r.kind||'—')}</td>
+    <td>${triageHTML(r)}</td>
     <td>${tsToHHMM(r.enteredAt)}</td>
     <td>${tsToHHMM(r.exitedAt)}</td>
     <td class="${stayClass}">${stay !== '—' ? stay+'分' : '—'}</td>
@@ -354,6 +374,7 @@ function tableHTML(records, action) {
           <th>部屋</th>
           <th>席ID</th>
           <th>種別</th>
+          <th>重症度</th>
           <th>入室</th>
           <th>退室</th>
           <th>滞在時間</th>
