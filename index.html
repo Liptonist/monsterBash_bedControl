@@ -25,6 +25,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .tab-link{padding:8px 14px;font-size:12px;color:#6b7280;text-decoration:none;display:flex;align-items:center;gap:4px;border:1px solid #e0e0e0;border-radius:6px;margin-right:10px;background:#fff;white-space:nowrap}
 .tab-link:hover{background:#f5f5f5;color:#1a1a1a}
 button.tab-link{font-family:inherit;cursor:pointer}
+.tab-about{padding:8px 12px;font-size:14px;line-height:1}
 .split{display:flex;gap:0;min-height:calc(100vh - 90px)}
 .col{flex:1;min-width:0;padding:12px;background:#f5f5f5}
 .col-l{border-right:1px solid #e0e0e0;background:#f0f4ff}
@@ -279,7 +280,7 @@ import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort,
          showAbout } from './app-common.js';
 
-window.showAbout = showAbout;   // タブ行の「ⓘ このアプリについて」から呼ぶ
+window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
 // ─── 定数 ───────────────────────────────────────────
 const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
@@ -439,7 +440,7 @@ function renderTabs() {
     `<a class="tab-link" href="history.html">🕘 変更履歴</a>` +
     // ユーザー管理は管理者にだけ出す
     (me.admin ? `<a class="tab-link" href="users.html">👥 ユーザー管理</a>` : '') +
-    `<button class="tab-link" onclick="showAbout()" title="このアプリについて">ⓘ このアプリについて</button>`;
+    `<button class="tab-link tab-about" onclick="showAbout()" title="このアプリについて" aria-label="このアプリについて">©</button>`;
 }
 function sw(i) { cur=i; renderTabs(); renderAll(); }
 window.sw = sw;
