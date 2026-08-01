@@ -20,7 +20,8 @@ Monster Bash 救護所のベッド・椅子コントロール（`monsterBash_bed
 
 **公開の Issue や Pull Request には書かないでください。**このアプリは常時公開されていて、患者情報を扱います。
 
-GitHub の非公開報告を使ってください。
+開発者へ個人LINEをお願いします。
+もしくは、GitHub の非公開報告を使ってください。
 
 1. リポジトリの **Security** タブを開く
 2. **Report a vulnerability** から報告する
