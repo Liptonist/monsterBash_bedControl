@@ -129,7 +129,27 @@ button.tab-link{font-family:inherit;cursor:pointer}
 /* オフラインバナー */
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
 .offline-banner.show{display:block}
+/* 全部屋横断の検索 */
+.searchbar{background:#fff;border-bottom:1px solid #e0e0e0;padding:7px 14px;display:flex;align-items:center;gap:7px;position:relative}
+.qicon{font-size:13px;color:#888;flex-shrink:0}
+.qinput{flex:1;min-width:0;max-width:360px;font-size:13px;padding:7px 10px;border-radius:6px;border:1px solid #ccc;background:#fafafa;color:#1a1a1a;font-family:inherit}
+.qinput:focus{outline:none;border-color:#3b82f6;background:#fff}
+.qclear{background:none;border:none;cursor:pointer;color:#888;font-size:15px;line-height:1;padding:3px 5px}
+.qclear:hover{color:#1a1a1a}
+.qhint{font-size:11px;color:#888;white-space:nowrap}
+.qres{display:none;position:absolute;top:100%;left:14px;right:14px;background:#fff;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 10px 10px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:52vh;overflow-y:auto;z-index:50}
+.qres.show{display:block}
+.qrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer}
+.qrow:last-child{border-bottom:none}
+.qrow:hover{background:#eff6ff}
+.qrow-place{font-size:11px;font-weight:600;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:2px 7px;white-space:nowrap}
+.qrow-name{font-size:13px;font-weight:500}
+.qrow-sub{font-size:11px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qempty{padding:12px;font-size:12px;color:#888;text-align:center}
 @media (max-width:600px){
+  .searchbar{padding:6px 10px}
+  .qres{left:10px;right:10px}
+  .qhint{display:none}
   .hdr{padding:8px 10px;gap:6px}
   .hdr-title{font-size:13px}
   .hdr-fest{font-size:10.5px;padding:2px 7px}
@@ -148,7 +168,7 @@ button.tab-link{font-family:inherit;cursor:pointer}
 </head>
 <body>
 
-<div class="offline-banner" id="offline-banner">⚠️ オフライン中 — 操作内容はローカルに保存され、回線復帰時に自動同期されます</div>
+<div class="offline-banner" id="offline-banner">⚠️ オフライン中 — このページを閉じたり再読み込みしたりすると、未送信の操作は失われます。回線が戻るまでこのまま開いておいてください</div>
 
 <div class="hdr">
   <div class="dot" id="sync-dot"></div>
@@ -161,6 +181,14 @@ button.tab-link{font-family:inherit;cursor:pointer}
 </div>
 
 <div class="tabs" id="tabs"></div>
+
+<div class="searchbar">
+  <span class="qicon">🔍</span>
+  <input class="qinput" id="q" placeholder="患者ID・氏名・症状で全部屋から探す" oninput="onSearch()" autocomplete="off">
+  <button class="qclear" id="qclear" onclick="clearSearch()" style="display:none" title="検索をやめる" aria-label="検索をやめる">✕</button>
+  <span class="qhint" id="qhint"></span>
+  <div class="qres" id="qres"></div>
+</div>
 
 <div class="split">
   <div class="col col-l">
@@ -337,7 +365,9 @@ function subscribeAll() {
   });
   onValue(ref(db, 'kyuugo/globalPatientId'), snap => {
     const v = snap.val();
-    if (v && v + 1 > globalPatientId) globalPatientId = v + 1;
+    // 日次の締めでサーバー側が 0 に戻るので、下がったときも追従させる。
+    // ここで v を偽値扱いすると、締めたあとも古い番号を持ち続けてしまう
+    if (v != null) globalPatientId = v + 1;
     setSyncStatus('online');
   });
 }
@@ -394,14 +424,28 @@ function setSyncStatus(s) {
 }
 
 // ─── ヘルパー ─────────────────────────────────────────
+// 患者名や症状はスタッフが入力した文字列なので、そのままHTMLに入れない
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+const DAY_MS = 86400000;
 function nowHHMM() {
   const n = new Date();
   return n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0');
 }
-function parseTimeToTs(hhmm) {
+// HH:MM には日付が入っていないので、基準時刻（refTs）にいちばん近い日の
+// その時刻として解釈する。深夜0時をまたぐ運用で、23:50入室→00:10退室が
+// 「翌日の入室」や「滞在0分」になってしまうのを防ぐ
+function parseTimeToTs(hhmm, refTs) {
   if (!hhmm) return null;
   const [h,m] = hhmm.split(':').map(Number);
-  const d = new Date(); d.setHours(h,m,0,0); return d.getTime();
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  const ref = refTs ?? Date.now();
+  const d = new Date(ref); d.setHours(h,m,0,0);
+  let ts = d.getTime();
+  if (ts - ref >  DAY_MS/2) ts -= DAY_MS;   // 基準より12時間以上あと → 前日のその時刻
+  if (ref - ts >  DAY_MS/2) ts += DAY_MS;   // 基準より12時間以上まえ → 翌日のその時刻
+  return ts;
 }
 function tsToHHMM(ts) {
   if (!ts) return '';
@@ -445,8 +489,75 @@ function renderTabs() {
 function sw(i) { cur=i; renderTabs(); renderAll(); }
 window.sw = sw;
 
+// ─── 全部屋横断の検索 ─────────────────────────────────
+// 部屋タブを切り替えないと「1-042さんはどこ？」に答えられないので、
+// 患者ID・氏名・症状から4部屋すべてを一度に探せるようにする
+let query = '';
+
+function onSearch() {
+  query = document.getElementById('q').value.trim();
+  document.getElementById('qclear').style.display = query ? 'block' : 'none';
+  renderSearch();
+}
+window.onSearch = onSearch;
+
+function clearSearch() {
+  document.getElementById('q').value = '';
+  onSearch();
+}
+window.clearSearch = clearSearch;
+
+// 埋まっている枠だけを対象にする（空き枠は探しても意味がない）
+function searchSlots(q) {
+  const t = q.toLowerCase();
+  const hits = [];
+  ROOMS.forEach((_, ri) => {
+    Object.entries(KIND_MAP).forEach(([kind, key]) => {
+      rooms[ri][key].forEach((b, idx) => {
+        if (!b || b.status === 'empty') return;
+        const hay = [pidShort(b), b.patientCode, b.name, b.sym, ageGenderText(b)]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (hay.includes(t)) hits.push({ri, kind, idx, b});
+      });
+    });
+  });
+  return hits;
+}
+
+function renderSearch() {
+  const box  = document.getElementById('qres');
+  const hint = document.getElementById('qhint');
+  if (!box || !hint) return;
+  if (!query) { box.classList.remove('show'); box.innerHTML = ''; hint.textContent = ''; return; }
+  const hits = searchSlots(query);
+  hint.textContent = `${hits.length}件`;
+  box.classList.add('show');
+  box.innerHTML = hits.length === 0
+    ? `<div class="qempty">該当する患者はいません</div>`
+    : hits.map(h => {
+        const pid = pidShort(h.b) ? `<span class="id-chip id-pat">${esc(pidShort(h.b))}</span>` : '';
+        const sub = [ageGenderText(h.b), h.b.sym].filter(Boolean).join('・');
+        return `<div class="qrow" onclick="jumpTo(${h.ri},'${h.kind}',${h.idx})">
+          <span class="qrow-place">${ROOMS[h.ri]} ${KIND_PREFIX[h.kind]}${h.b.localId}</span>
+          ${pid}
+          <span class="qrow-name">${esc(h.b.name || '氏名未入力')}</span>
+          ${sub ? `<span class="qrow-sub">${esc(sub)}</span>` : ''}
+          ${h.b.waiting ? `<span class="wait-chip">送迎待ち</span>` : ''}
+        </div>`;
+      }).join('');
+}
+
+// 検索結果から、その部屋へ移動して編集モーダルを開く
+function jumpTo(ri, kind, idx) {
+  if (cur !== ri) { cur = ri; renderTabs(); }
+  clearSearch();
+  renderAll();
+  openM(kind, idx);
+}
+window.jumpTo = jumpTo;
+
 // ─── レンダリング ─────────────────────────────────────
-function renderAll() { renderBedArea(); renderChairArea(); }
+function renderAll() { renderBedArea(); renderChairArea(); renderSearch(); }
 
 function renderBedArea() {
   const r = rooms[cur];
@@ -457,22 +568,27 @@ function renderBedArea() {
     <div class="bed-grid">${r.beds.map(b => bedHTML(b)).join('')}</div>`;
 }
 
+// 入室時刻を未来の時刻に直したときなどにマイナス表示にならないようにする
+function elapsedMins(enteredAt) {
+  return Math.max(0, Math.floor((Date.now()-enteredAt)/60000));
+}
+
 function bedHTML(b) {
   let tinfo = '';
   if (b.enteredAt) {
-    const m = Math.floor((Date.now()-b.enteredAt)/60000);
+    const m = elapsedMins(b.enteredAt);
     const ec = m>=30?'ed':m>=20?'ew':'';
     tinfo = `<div class="itime"><span>${tsToHHMM(b.enteredAt)}</span><span class="elapsed ${ec}">${m}分</span></div>`;
   }
-  const pid  = pidShort(b) ? `<span class="id-chip id-pat">${pidShort(b)}</span>` : '';
+  const pid  = pidShort(b) ? `<span class="id-chip id-pat">${esc(pidShort(b))}</span>` : '';
   const wait = b.waiting ? `<span class="wait-chip">送迎待ち</span>` : '';
   const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
   const ag = ageGenderText(b);
   return `<div class="item ${b.status}" onclick="openM('bed',${b.localId-1})">
     <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}${wait}</div>
-    <div class="iname">${nameText}</div>
-    ${ag ? `<div class="iage">${ag}</div>` : ''}
-    <div class="isym">${b.sym||''}</div>
+    <div class="iname">${esc(nameText)}</div>
+    ${ag ? `<div class="iage">${esc(ag)}</div>` : ''}
+    <div class="isym">${esc(b.sym||'')}</div>
     ${tinfo}
   </div>`;
 }
@@ -494,20 +610,20 @@ function renderChairArea() {
 function chairHTML(b, kind) {
   let timeRow = '';
   if (b.enteredAt) {
-    const m = Math.floor((Date.now()-b.enteredAt)/60000);
+    const m = elapsedMins(b.enteredAt);
     const ec = m>=30?'ed':m>=20?'ew':'';
     timeRow = `<div class="c-timerow"><span class="c-time">${tsToHHMM(b.enteredAt)}</span><span class="c-elapsed ${ec}">${m}分</span></div>`;
   }
-  const pid  = pidShort(b) ? `<span class="c-pid">${pidShort(b)}</span>` : '';
-  const sym  = b.sym ? `<div class="c-sym">${b.sym}</div>` : '';
+  const pid  = pidShort(b) ? `<span class="c-pid">${esc(pidShort(b))}</span>` : '';
+  const sym  = b.sym ? `<div class="c-sym">${esc(b.sym)}</div>` : '';
   const wait = b.waiting ? `<div class="c-wait">送迎待ち</div>` : '';
   const prefix = KIND_PREFIX[kind];
   const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
   const ag = ageGenderText(b);
   return `<div class="chair-item ${b.status}" onclick="openM('${kind}',${b.localId-1})">
     <div class="c-idrow"><span class="c-id">${prefix}${b.localId}</span>${pid}</div>
-    <div class="c-name">${nameText}</div>
-    ${ag ? `<div class="c-age">${ag}</div>` : ''}
+    <div class="c-name">${esc(nameText)}</div>
+    ${ag ? `<div class="c-age">${esc(ag)}</div>` : ''}
     ${sym}${wait}${timeRow}
   </div>`;
 }
@@ -639,7 +755,9 @@ function saveB() {
     closeM(); renderAll();
     return;
   }
-  b.enteredAt = parseTimeToTs(document.getElementById('ftime').value);
+  // すでに入室している人を編集した場合は、もとの入室時刻を基準に解釈する。
+  // 日付が変わってから編集しても、入室日が今日に付け替わらないようにするため
+  b.enteredAt = parseTimeToTs(document.getElementById('ftime').value, b.enteredAt);
   setSyncStatus('syncing');
   if (wasEmpty && !b.patientId) {
     trackWrite(runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1))
@@ -680,8 +798,10 @@ function checkoutB() {
   const b = rooms[roomIdx][key][idx];
   if (!b) return;
 
-  const outTs = parseTimeToTs(document.getElementById('fout').value);
-  const inTs  = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
+  const inTs  = parseTimeToTs(document.getElementById('ftime').value, b.enteredAt) ?? b.enteredAt;
+  let   outTs = parseTimeToTs(document.getElementById('fout').value, Date.now());
+  // 23:50入室 → 00:10退室 のように日付をまたいだら、退室は翌日として数える
+  if (outTs != null && inTs != null && outTs < inTs) outTs += DAY_MS;
   const stayMs = (outTs && inTs) ? Math.max(0, outTs - inTs) : null;
 
   const ageVal = document.getElementById('fage').value;
@@ -753,7 +873,7 @@ function moveB() {
   dest.gender   = document.getElementById('fgender').value;
   dest.patientId = b.patientId;
   dest.patientCode = b.patientCode ?? null;
-  dest.enteredAt = parseTimeToTs(document.getElementById('ftime').value) ?? b.enteredAt;
+  dest.enteredAt = parseTimeToTs(document.getElementById('ftime').value, b.enteredAt) ?? b.enteredAt;
 
   const fromLabel = slotLabel(roomIdx, kind, b);
 

@@ -520,9 +520,9 @@ function openReenter(key) {
   reMsg('');
 
   $r('re-sum').innerHTML = [
-    pidShort(rec) ? `<b>${pidShort(rec)}</b>` : '',
-    rec.name || '氏名未入力',
-    rec.sym || '',
+    pidShort(rec) ? `<b>${esc(pidShort(rec))}</b>` : '',
+    esc(rec.name || '氏名未入力'),
+    rec.sym ? esc(rec.sym) : '',
     `${tsToHHMM(rec.enteredAt)} 入室 → ${tsToHHMM(rec.exitedAt)} 退室`,
   ].filter(Boolean).join(' ／ ');
 
