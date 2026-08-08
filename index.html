@@ -103,10 +103,12 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .sopt.sy{background:#fefce8;border-color:#fde68a;color:#92400e}
 .sopt.sr{background:#fee2e2;border-color:#fecaca;color:#991b1b}
 .sopt.sel{box-shadow:0 0 0 2px #3b82f6}
-.finput{width:100%;font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;background:#fafafa;color:#1a1a1a}
+.finput{width:100%;min-width:0;font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid #ccc;background:#fafafa;color:#1a1a1a}
 .finput:focus{outline:none;border-color:#3b82f6;background:#fff}
 .fidro{background:#f0f0f0;color:#888;cursor:default}
 .id-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* 中身（時刻入力など）が横に広がって列からはみ出さないようにする */
+.id-fields>*{min-width:0}
 .symq{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .sqb{padding:4px 12px;border-radius:20px;border:1px solid #ccc;background:#fafafa;font-size:11px;cursor:pointer;color:#555}
 .sqb:hover{background:#eff6ff;color:#1e40af;border-color:#93c5fd}
@@ -265,16 +267,20 @@ button.tab-link{font-family:inherit;cursor:pointer}
           送迎待ち
         </label>
       </div>
-      <div id="time-field">
-        <div class="lbl">入室時刻</div>
-        <input class="finput" type="time" id="ftime">
-        <div class="time-hint">自動入力されます。手動で変更も可能です。</div>
+      <div class="id-fields">
+        <div>
+          <div class="lbl">入室時刻</div>
+          <input class="finput" type="time" id="ftime">
+          <div class="time-hint">自動入力（変更できます）</div>
+        </div>
+        <div>
+          <div class="lbl">退室時刻</div>
+          <input class="finput" type="time" id="fout">
+          <div class="time-hint">現在時刻（変更できます）</div>
+        </div>
       </div>
-      <div id="out-field">
-        <div class="lbl">退室時刻</div>
-        <input class="finput" type="time" id="fout">
-        <div class="time-hint">デフォルトは現在時刻です。手動変更も可能です。</div>
-        <div class="lbl" style="margin-top:10px">転帰</div>
+      <div>
+        <div class="lbl">転帰</div>
         <select class="finput" id="foutcome"></select>
         <div class="time-hint">退室したときの結果です。「退室する」を押したときに記録に残ります。</div>
       </div>
