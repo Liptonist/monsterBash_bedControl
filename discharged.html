@@ -26,7 +26,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .filter-select{font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#1a1a1a}
 .empty-msg{text-align:center;color:#aaa;padding:40px;font-size:13px}
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-table{width:100%;min-width:680px;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
+table{width:100%;min-width:760px;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
 thead{background:#f0f4ff}
 th{font-size:11px;font-weight:600;color:#555;padding:9px 10px;text-align:left;border-bottom:1px solid #e0e0e0;white-space:nowrap}
 td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
@@ -40,6 +40,14 @@ tr:hover td{background:#fafafa}
 .tri-green{background:#dcfce7;border:1px solid #86efac;color:#166534}
 .tri-yellow{background:#fef9c3;border:1px solid #fde047;color:#92400e}
 .tri-red{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b}
+/* 転帰。救急搬送だけは見落とさないよう強めの色にする */
+.out{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;white-space:nowrap}
+.out-ok{background:#f1f5f9;border:1px solid #cbd5e1;color:#475569}
+.out-amb{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b}
+.out-obs{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+.csv-btn{margin-left:auto;background:#fff;border:1px solid #86efac;color:#166534;border-radius:6px;padding:5px 12px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap}
+.csv-btn:hover{background:#f0fdf4}
+.csv-btn:disabled{border-color:#e5e7eb;color:#9ca3af;cursor:not-allowed;background:#fff}
 .stay{font-weight:500;color:#374151}
 .stay.long{color:#dc2626}
 .del-btn{background:none;border:1px solid #fca5a5;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;color:#dc2626;line-height:1}
@@ -129,6 +137,10 @@ tr:hover td{background:#fafafa}
       <option value="室内椅子">室内椅子</option>
       <option value="室外椅子">室外椅子</option>
     </select>
+    <select class="filter-select" id="filter-outcome" onchange="applyFilter()">
+      <option value="">全転帰</option>
+    </select>
+    <button class="csv-btn" id="csv-btn" onclick="exportCSV()" title="絞り込んだ結果をCSVで保存します">⬇️ CSVで保存</button>
   </div>
   <div id="table-area"></div>
 
@@ -206,7 +218,9 @@ tr:hover td{background:#fafafa}
 import { ref, onValue, set, remove, update, get, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, requireAuth, logChange, trackWrite,
-         festival, subscribeFestival, pidShort } from './app-common.js';
+         festival, subscribeFestival, pidShort,
+         OUTCOMES, OUTCOME_CLASS, CSV_HEADERS, csvRow, toCSV, downloadCSV,
+         safeFileName } from './app-common.js';
 
 // ─── 定数（index.html と揃える） ─────────────────────
 const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
@@ -263,7 +277,7 @@ function subscribeAll() {
 
   onValue(ref(db, 'kyuugo/discharged'), snap => {
     const data = snap.val();
-    if (!data) { allRecords = []; render([]); return; }
+    if (!data) { allRecords = []; applyFilter(); return; }
     // Firebaseのpushキーでソート（新しい順）
     allRecords = Object.entries(data)
       .map(([k, v]) => ({...v, _key: k}))
@@ -286,22 +300,44 @@ function subscribeAll() {
   }, e => console.warn('rooms:', e));
 }
 
+// 絞り込んだ結果はCSV書き出しでも使うので保持しておく
+let shownRecords = [];
+
 function applyFilter() {
   const room = document.getElementById('filter-room').value;
   const kind = document.getElementById('filter-kind').value;
-  const filtered = allRecords.filter(r =>
+  const out  = document.getElementById('filter-outcome').value;
+  shownRecords = allRecords.filter(r =>
     (!room || r.room === room) &&
-    (!kind || r.kind === kind)
+    (!kind || r.kind === kind) &&
+    (!out  || (r.outcome || '') === out)
   );
-  render(filtered);
+  render(shownRecords);
 }
 window.applyFilter = applyFilter;
+
+// ─── CSV書き出し ─────────────────────────────────────
+// 絞り込んだ結果をそのまま出す。撤収後の報告と、記録の集計に使う
+function exportCSV() {
+  if (!shownRecords.length) { alert('書き出せる記録がありません。'); return; }
+  const csv = toCSV(CSV_HEADERS, shownRecords.map(csvRow));
+  const name = safeFileName(`退室済み_${festival.year}年${festival.day}日目_${stamp()}.csv`);
+  downloadCSV(name, csv);
+  logChange('CSV書き出し', '退室済み一覧', `${shownRecords.length}件`);
+}
+window.exportCSV = exportCSV;
+
+function stamp() {
+  const d = new Date(), p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+}
 
 function render(records) {
   // サマリー
   document.getElementById('summary').innerHTML = `
     <div class="sum-card"><div class="sum-num">${allRecords.length}</div><div class="sum-lbl">総退室数</div></div>
     <div class="sum-card"><div class="sum-num">${avgStay(allRecords)}</div><div class="sum-lbl">平均滞在(分)</div></div>
+    <div class="sum-card"><div class="sum-num">${countOutcome(allRecords,'救急搬送')}</div><div class="sum-lbl">救急搬送</div></div>
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'本部')}</div><div class="sum-lbl">本部</div></div>
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'空海横')}</div><div class="sum-lbl">空海横</div></div>
     <div class="sum-card"><div class="sum-num">${countRoom(allRecords,'サーカス')}</div><div class="sum-lbl">サーカス</div></div>
@@ -336,6 +372,14 @@ function triageHTML(r) {
   return cls ? `<span class="tri tri-${cls}">${esc(t)}</span>` : esc(t);
 }
 
+// 転帰。転帰を入れる前に記録された古いデータは「—」になる
+function outcomeHTML(r) {
+  const o = (r.outcome || '').trim();
+  if (!o) return '—';
+  const cls = OUTCOME_CLASS[o];
+  return cls ? `<span class="out out-${cls}">${esc(o)}</span>` : esc(o);
+}
+
 function recordRowHTML(r, action) {
   const stay = r.stayMins != null ? r.stayMins : '—';
   const stayClass = r.stayMins >= 30 ? 'stay long' : 'stay';
@@ -354,6 +398,7 @@ function recordRowHTML(r, action) {
     <td><span class="slot-badge">${esc(r.slotId||'—')}</span></td>
     <td>${esc(r.kind||'—')}</td>
     <td>${triageHTML(r)}</td>
+    <td>${outcomeHTML(r)}</td>
     <td>${tsToHHMM(r.enteredAt)}</td>
     <td>${tsToHHMM(r.exitedAt)}</td>
     <td class="${stayClass}">${stay !== '—' ? stay+'分' : '—'}</td>
@@ -375,6 +420,7 @@ function tableHTML(records, action) {
           <th>席ID</th>
           <th>種別</th>
           <th>重症度</th>
+          <th>転帰</th>
           <th>入室</th>
           <th>退室</th>
           <th>滞在時間</th>
@@ -424,6 +470,7 @@ function recDetail(r) {
     pidShort(r) || null,
     r.name || null,
     r.triage || null,
+    r.outcome || null,
     r.stayMins != null ? `滞在${r.stayMins}分` : null,
   ].filter(Boolean).join(' / ');
 }
@@ -621,6 +668,9 @@ function avgStay(records) {
 function countRoom(records, room) {
   return records.filter(r => r.room === room).length;
 }
+function countOutcome(records, outcome) {
+  return records.filter(r => (r.outcome || '') === outcome).length;
+}
 
 // ─── 日次の締め（管理者のみ） ────────────────────────
 const $c = id => document.getElementById(id);
@@ -765,6 +815,8 @@ function setupCloseSection() {
 
 // ─── 起動（認証が通ってから） ─────────────────────────
 requireAuth('📋 退室済み一覧', () => {
+  document.getElementById('filter-outcome').innerHTML =
+    `<option value="">全転帰</option>` + OUTCOMES.map(o => `<option>${o}</option>`).join('');
   subscribeFestival(renderFestival);
   setupCloseSection();
   subscribeAll();

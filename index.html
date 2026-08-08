@@ -137,6 +137,11 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .qclear{background:none;border:none;cursor:pointer;color:#888;font-size:15px;line-height:1;padding:3px 5px}
 .qclear:hover{color:#1a1a1a}
 .qhint{font-size:11px;color:#888;white-space:nowrap}
+.qwait{font-size:11.5px;font-family:inherit;padding:6px 11px;border-radius:20px;border:1px solid #c4a18a;background:#f3ede8;color:#6b3a2a;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.qwait:hover{background:#e8d5c4}
+.qwait.on{background:#6b3a2a;border-color:#6b3a2a;color:#fff}
+/* 画面スリープ防止のトグル。対応していない端末では表示しない */
+.tab-wake.on{background:#fef3c7;border-color:#fcd34d;color:#92400e}
 .qres{display:none;position:absolute;top:100%;left:14px;right:14px;background:#fff;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 10px 10px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:52vh;overflow-y:auto;z-index:50}
 .qres.show{display:block}
 .qrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer}
@@ -186,6 +191,7 @@ button.tab-link{font-family:inherit;cursor:pointer}
   <span class="qicon">🔍</span>
   <input class="qinput" id="q" placeholder="患者ID・氏名・症状で全部屋から探す" oninput="onSearch()" autocomplete="off">
   <button class="qclear" id="qclear" onclick="clearSearch()" style="display:none" title="検索をやめる" aria-label="検索をやめる">✕</button>
+  <button class="qwait" id="qwait" onclick="toggleWait()" title="送迎待ちの患者を全部屋から一覧にする">🚐 送迎待ち <b id="qwait-n">0</b></button>
   <span class="qhint" id="qhint"></span>
   <div class="qres" id="qres"></div>
 </div>
@@ -270,6 +276,9 @@ button.tab-link{font-family:inherit;cursor:pointer}
         <div class="lbl">退室時刻</div>
         <input class="finput" type="time" id="fout">
         <div class="time-hint">デフォルトは現在時刻です。手動変更も可能です。</div>
+        <div class="lbl" style="margin-top:10px">転帰</div>
+        <select class="finput" id="foutcome"></select>
+        <div class="time-hint">退室したときの結果です。「退室する」を押したときに記録に残ります。</div>
       </div>
     </div>
     <div class="mf">
@@ -306,7 +315,7 @@ import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort,
-         showAbout } from './app-common.js';
+         OUTCOMES, OUTCOME_DEFAULT, showAbout } from './app-common.js';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
@@ -484,19 +493,71 @@ function renderTabs() {
     `<a class="tab-link" href="history.html">🕘 変更履歴</a>` +
     // ユーザー管理は管理者にだけ出す
     (me.admin ? `<a class="tab-link" href="users.html">👥 ユーザー管理</a>` : '') +
+    wakeBtnHTML() +
     `<button class="tab-link tab-about" onclick="showAbout()" title="このアプリについて" aria-label="このアプリについて">©</button>`;
 }
 function sw(i) { cur=i; renderTabs(); renderAll(); }
 window.sw = sw;
 
+// ─── 画面スリープ防止（Wake Lock） ────────────────────
+// 据え置きの端末で表示しっぱなしにするとき用。既定はオフで、
+// タブ行のボタンで切り替える。選んだ状態はこの端末に覚えておく。
+const WAKE_KEY = 'kyuugo.wakeLock';
+const wakeSupported = 'wakeLock' in navigator;
+let wakeOn = wakeSupported && localStorage.getItem(WAKE_KEY) === 'on';
+let wakeLock = null;
+
+function wakeBtnHTML() {
+  if (!wakeSupported) return '';
+  return `<button class="tab-link tab-wake${wakeOn?' on':''}" onclick="toggleWake()"
+    title="画面が自動で暗くならないようにします">☀️ スリープ防止：${wakeOn?'オン':'オフ'}</button>`;
+}
+
+// announce を立てるのはボタンを押したときだけ。起動時や復帰時に取れなくても、
+// 設定そのものは残しておいて次の機会にやり直す
+async function acquireWake(announce) {
+  if (!wakeSupported || !wakeOn || wakeLock || document.visibilityState !== 'visible') return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    // 端末側の都合で解除されることがあるので、解除されたら持ち直せるようにする
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) {
+    console.warn('wakeLock:', e);
+    if (announce) {
+      wakeOn = false;
+      localStorage.setItem(WAKE_KEY, 'off');
+      renderTabs();
+      alert('この端末では画面のスリープ防止を使えませんでした。\n端末側の設定で画面が消えないようにしてください。');
+    }
+  }
+}
+async function releaseWake() {
+  const l = wakeLock; wakeLock = null;
+  if (l) { try { await l.release(); } catch (e) { console.warn('wakeLock:', e); } }
+}
+function toggleWake() {
+  wakeOn = !wakeOn;
+  localStorage.setItem(WAKE_KEY, wakeOn ? 'on' : 'off');
+  renderTabs();
+  if (wakeOn) acquireWake(true); else releaseWake();
+}
+window.toggleWake = toggleWake;
+
+// 別のタブに移ると解除されるので、戻ってきたら取り直す
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') acquireWake();
+});
+
 // ─── 全部屋横断の検索 ─────────────────────────────────
 // 部屋タブを切り替えないと「1-042さんはどこ？」に答えられないので、
 // 患者ID・氏名・症状から4部屋すべてを一度に探せるようにする
 let query = '';
+let waitMode = false;   // 送迎待ちだけを一覧にしているか
 
 function onSearch() {
   query = document.getElementById('q').value.trim();
   document.getElementById('qclear').style.display = query ? 'block' : 'none';
+  if (query) waitMode = false;   // 検索を始めたら送迎待ち一覧は閉じる
   renderSearch();
 }
 window.onSearch = onSearch;
@@ -507,49 +568,78 @@ function clearSearch() {
 }
 window.clearSearch = clearSearch;
 
-// 埋まっている枠だけを対象にする（空き枠は探しても意味がない）
-function searchSlots(q) {
-  const t = q.toLowerCase();
+// 送迎待ちの一覧。今までは件数のチップしか無く、誰が待っているかは
+// 部屋を順番に見て回るしかなかった
+function toggleWait() {
+  waitMode = !waitMode;
+  if (waitMode && query) { document.getElementById('q').value = ''; query = ''; document.getElementById('qclear').style.display = 'none'; }
+  renderSearch();
+}
+window.toggleWait = toggleWait;
+
+// 全部屋・全種別の埋まっている枠に対して pick(item) が真になるものを集める
+function collectSlots(pick) {
   const hits = [];
   ROOMS.forEach((_, ri) => {
     Object.entries(KIND_MAP).forEach(([kind, key]) => {
       rooms[ri][key].forEach((b, idx) => {
         if (!b || b.status === 'empty') return;
-        const hay = [pidShort(b), b.patientCode, b.name, b.sym, ageGenderText(b)]
-          .filter(Boolean).join(' ').toLowerCase();
-        if (hay.includes(t)) hits.push({ri, kind, idx, b});
+        if (pick(b)) hits.push({ri, kind, idx, b});
       });
     });
   });
   return hits;
 }
 
+// 空き枠は探しても意味がないので対象外
+function searchSlots(q) {
+  const t = q.toLowerCase();
+  return collectSlots(b => [pidShort(b), b.patientCode, b.name, b.sym, ageGenderText(b)]
+    .filter(Boolean).join(' ').toLowerCase().includes(t));
+}
+const waitingSlots = () => collectSlots(b => !!b.waiting);
+
+function qrowHTML(h) {
+  const pid = pidShort(h.b) ? `<span class="id-chip id-pat">${esc(pidShort(h.b))}</span>` : '';
+  const sub = [ageGenderText(h.b), h.b.sym].filter(Boolean).join('・');
+  const el  = h.b.enteredAt ? `<span class="qrow-sub">${elapsedMins(h.b.enteredAt)}分経過</span>` : '';
+  return `<div class="qrow" onclick="jumpTo(${h.ri},'${h.kind}',${h.idx})">
+    <span class="qrow-place">${ROOMS[h.ri]} ${KIND_PREFIX[h.kind]}${h.b.localId}</span>
+    ${pid}
+    <span class="qrow-name">${esc(h.b.name || '氏名未入力')}</span>
+    ${sub ? `<span class="qrow-sub">${esc(sub)}</span>` : ''}
+    ${h.b.waiting ? `<span class="wait-chip">送迎待ち</span>` : ''}
+    ${el}
+  </div>`;
+}
+
 function renderSearch() {
   const box  = document.getElementById('qres');
   const hint = document.getElementById('qhint');
-  if (!box || !hint) return;
-  if (!query) { box.classList.remove('show'); box.innerHTML = ''; hint.textContent = ''; return; }
-  const hits = searchSlots(query);
+  const wbtn = document.getElementById('qwait');
+  if (!box || !hint || !wbtn) return;
+
+  const waiting = waitingSlots();
+  document.getElementById('qwait-n').textContent = waiting.length;
+  wbtn.classList.toggle('on', waitMode);
+
+  if (!query && !waitMode) {
+    box.classList.remove('show'); box.innerHTML = ''; hint.textContent = '';
+    return;
+  }
+  const hits  = waitMode ? waiting : searchSlots(query);
+  const empty = waitMode ? '送迎待ちの患者はいません' : '該当する患者はいません';
   hint.textContent = `${hits.length}件`;
   box.classList.add('show');
   box.innerHTML = hits.length === 0
-    ? `<div class="qempty">該当する患者はいません</div>`
-    : hits.map(h => {
-        const pid = pidShort(h.b) ? `<span class="id-chip id-pat">${esc(pidShort(h.b))}</span>` : '';
-        const sub = [ageGenderText(h.b), h.b.sym].filter(Boolean).join('・');
-        return `<div class="qrow" onclick="jumpTo(${h.ri},'${h.kind}',${h.idx})">
-          <span class="qrow-place">${ROOMS[h.ri]} ${KIND_PREFIX[h.kind]}${h.b.localId}</span>
-          ${pid}
-          <span class="qrow-name">${esc(h.b.name || '氏名未入力')}</span>
-          ${sub ? `<span class="qrow-sub">${esc(sub)}</span>` : ''}
-          ${h.b.waiting ? `<span class="wait-chip">送迎待ち</span>` : ''}
-        </div>`;
-      }).join('');
+    ? `<div class="qempty">${empty}</div>`
+    : hits.map(qrowHTML).join('');
 }
 
-// 検索結果から、その部屋へ移動して編集モーダルを開く
+// 検索結果・送迎待ち一覧から、その部屋へ移動して編集モーダルを開く
 function jumpTo(ri, kind, idx) {
   if (cur !== ri) { cur = ri; renderTabs(); }
+  waitMode = false;
   clearSearch();
   renderAll();
   openM(kind, idx);
@@ -662,6 +752,9 @@ function openM(kind, idx) {
   document.getElementById('fwait').checked = !!b.waiting;
   document.getElementById('ftime').value = b.enteredAt ? tsToHHMM(b.enteredAt) : nowHHMM();
   document.getElementById('fout').value = nowHHMM();
+  // 転帰は退室のたびに選び直す。ほとんどは帰宅なので既定は帰宅にしておく
+  document.getElementById('foutcome').innerHTML =
+    OUTCOMES.map(o => `<option${o===OUTCOME_DEFAULT?' selected':''}>${o}</option>`).join('');
   document.getElementById('fmove-room').innerHTML =
     ROOMS.map((n,i) => `<option value="${i}"${i===cur?' selected':''}>${n}</option>`).join('');
   document.getElementById('fmove-kind').value = kind;
@@ -816,6 +909,7 @@ function checkoutB() {
     slotId:     `${KIND_PREFIX[kind]}${b.localId}`,
     kind:       KIND_LABEL[kind],
     triage:     SL[curS] || curS,
+    outcome:    document.getElementById('foutcome').value || null,
     enteredAt:  inTs ?? null,
     exitedAt:   outTs ?? null,
     stayMins:   stayMs !== null ? Math.floor(stayMs/60000) : null,
@@ -827,6 +921,7 @@ function checkoutB() {
     pidShort(record) || null,
     record.name || null,
     record.triage,
+    record.outcome || null,
     record.stayMins != null ? `滞在${record.stayMins}分` : null,
   ].filter(Boolean).join(' / ');
   logChange('退室', slotLabel(roomIdx, kind, b), outDetail);
@@ -910,6 +1005,7 @@ function renderFestBadge() {
 requireAuth('救護所 ベッド・椅子コントロール', () => {
   subscribeFestival(() => { renderFestBadge(); renderAll(); });
   renderTabs(); renderAll(); setInterval(tick,1000); tick(); subscribeAll();
+  acquireWake();   // 前回オンにしていた端末では、開いた時点で掛け直す
 });
 </script>
 </body>

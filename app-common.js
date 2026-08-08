@@ -55,6 +55,64 @@ export const pidText = r =>
 // データ側には年を含んだままの値を保存する。
 export const pidShort = r => pidText(r).replace(/^\d{4}-/, '');
 
+// ─── 転帰（退室したときの結果） ──────────────────────
+// 退室記録の outcome に、この文字列のいずれかがそのまま入る。
+// 増やすときは database.rules.json の文字数上限（20）に収まるようにする。
+export const OUTCOMES = ['帰宅', '救急搬送', '経過観察'];
+export const OUTCOME_DEFAULT = '帰宅';
+// 救急搬送だけは一覧で目立たせたいので区別できるようにしておく
+export const OUTCOME_CLASS = {'帰宅':'ok', '救急搬送':'amb', '経過観察':'obs'};
+
+// ─── CSV書き出し ─────────────────────────────────────
+// 退室記録（kyuugo/discharged と保存済みの記録）を表計算ソフトで開ける形にする。
+export const CSV_HEADERS = [
+  '患者ID', '氏名', '年齢', '性別', '症状', '部屋', '枠ID', '種別',
+  '重症度', '転帰', '入室', '退室', '滞在(分)', '記録時刻',
+];
+
+// CSVには時刻だけでなく日付も入れる。深夜0時をまたぐと
+// 「23:50 → 00:10」が時刻だけでは前後どちらか分からなくなるため
+function csvTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+export function csvRow(r) {
+  return [
+    pidText(r), r.name ?? '', r.age ?? '', r.gender ?? '', r.sym ?? '',
+    r.room ?? '', r.slotId ?? '', r.kind ?? '', r.triage ?? '', r.outcome ?? '',
+    csvTime(r.enteredAt), csvTime(r.exitedAt),
+    r.stayMins ?? '', csvTime(r.recordedAt),
+  ];
+}
+
+// 値に , " 改行 が含まれるときだけ引用符でくくる（RFC 4180）
+export function toCSV(headers, rows) {
+  const cell = v => {
+    const s = v == null ? '' : String(v);
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers, ...rows].map(r => r.map(cell).join(',')).join('\r\n');
+}
+
+// Excel が UTF-8 と判別できるように先頭にBOMを付ける（付けないと文字化けする）
+export function downloadCSV(filename, csv) {
+  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ファイル名に使えない文字を落とす
+export const safeFileName = s => String(s).replace(/[\\/:*?"<>|]/g, '_');
+
 // ログイン中のユーザー情報。requireAuth が通ったあとに中身が入る
 // name は表示用に解決済みの名前（許可リスト → Googleプロフィール → 未設定）
 export const me = {user: null, email: '', name: '', admin: false};
@@ -542,7 +600,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '0.10.0',
+  version:   '0.11.0',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -550,6 +608,12 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '0.11.0', date: '2026-08-08', items: [
+    '退室のときに転帰（帰宅・救急搬送・経過観察）を記録できるようにした',
+    '退室済み一覧と保存済みの記録に「CSVで保存」を追加',
+    'メイン画面に、送迎待ちの患者を全部屋から一覧にするボタンを追加',
+    '画面が自動で暗くならないようにする「スリープ防止」を追加（初期状態はオフ）',
+  ]},
   {version: '0.10.0', date: '2026-08-07', items: [
     'メイン画面に、患者ID・氏名・症状で4部屋すべてから探せる検索を追加',
     '深夜0時をまたぐ入退室で滞在時間が0分になったり、入室日がずれたりするのを修正',

@@ -69,7 +69,7 @@ const item = (o = {}) => ({
 const rec = (o = {}) => ({
   patientId: 1, patientCode: '2026-1-001', name: '山田', age: 30, gender: '男',
   sym: '頭痛', room: '本部', slotId: 'B1', kind: 'ベッド',
-  triage: '軽症', enteredAt: 1, exitedAt: 2, stayMins: 1, recordedAt: 3, ...o,
+  triage: '軽症', outcome: '帰宅', enteredAt: 1, exitedAt: 2, stayMins: 1, recordedAt: 3, ...o,
 });
 const log = (o = {}) => ({
   at: 1700000000000, uid: 'uid-staff@example.com', email: 'staff@example.com',
@@ -176,6 +176,10 @@ await t('管理者は締めで一括消去できる',             'allow', 'PATC
   { 'kyuugo/discharged': null, 'kyuugo/discharged_trash': null, 'kyuugo/globalPatientId': 0, 'kyuugo/festival/day': 2 });
 await t('未知のフィールドは記録できない',           'deny',  'POST', 'kyuugo/discharged', STAFF, rec({ memo: 'x' }));
 await t('滞在時間は数値のみ',                       'deny',  'POST', 'kyuugo/discharged', STAFF, rec({ stayMins: '10分' }));
+await t('転帰つきの記録を追加できる',               'allow', 'POST', 'kyuugo/discharged', STAFF, rec({ outcome: '救急搬送' }));
+await t('転帰なしの記録も追加できる（旧データ互換）','allow', 'POST', 'kyuugo/discharged', STAFF, rec({ outcome: undefined }));
+await t('転帰が長すぎると記録できない',             'deny',  'POST', 'kyuugo/discharged', STAFF, rec({ outcome: 'あ'.repeat(21) }));
+await t('転帰は文字列のみ',                         'deny',  'POST', 'kyuugo/discharged', STAFF, rec({ outcome: 1 }));
 
 console.log('\n── 変更履歴（auditLog） ──');
 await t('スタッフは履歴を読める',                   'allow', 'GET', 'kyuugo/auditLog', STAFF);
@@ -243,13 +247,17 @@ await step('変更履歴に「枠数変更」を追記', 'POST', 'kyuugo/auditLo
 console.log('\n── 退室（index.html: checkoutB） ──');
 const record = { patientId: 1, patientCode: '2026-1-001', name: '山田太郎', age: 42, gender: '男',
   sym: '熱中症の疑い', room: 'サーカス', slotId: 'C4', kind: '椅子（室内）', triage: '重症',
+  outcome: '救急搬送',
   enteredAt: 1764547200000, exitedAt: 1764554400000, stayMins: 120, recordedAt: Date.now() };
 await step('退室記録を追加（push）', 'POST', 'kyuugo/discharged', STAFF, record);
 await step('枠を空きに戻す', 'PUT', 'kyuugo/rooms/2/chairsIn/3', STAFF, empty(4));
 await step('変更履歴に「退室」を追記', 'POST', 'kyuugo/auditLog', STAFF,
-  logChange('退室', 'サーカス 椅子（室内）C4', '1-001 / 山田太郎 / 重症 / 滞在120分'));
+  logChange('退室', 'サーカス 椅子（室内）C4', '1-001 / 山田太郎 / 重症 / 救急搬送 / 滞在120分'));
 await step('滞在時間なし（時刻未入力）の退室記録', 'POST', 'kyuugo/discharged', STAFF,
-  { patientId: 9, name: '', sym: '', room: '本部', slotId: 'B1', kind: 'ベッド', triage: '軽症', recordedAt: Date.now() });
+  { patientId: 9, name: '', sym: '', room: '本部', slotId: 'B1', kind: 'ベッド', triage: '軽症',
+    outcome: '帰宅', recordedAt: Date.now() });
+await step('日付をまたいだ退室記録（翌日の退室時刻）', 'POST', 'kyuugo/discharged', STAFF,
+  { ...record, enteredAt: 1764551400000, exitedAt: 1764552600000, stayMins: 20, outcome: '経過観察' });
 
 console.log('\n── ゴミ箱への移動と復帰（discharged.html） ──');
 await req('PUT', 'kyuugo/discharged/rec1', 'owner', record);
