@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>取扱説明書 — 救護所 ベッド・椅子コントロール</title>
+<style>
+/* ============================================================
+   救護所 ベッド・椅子コントロール 取扱説明書
+   A4 縦・印刷対応（1つの .page = 印刷1ページ）
+   ============================================================ */
+@page { size: A4 portrait; margin: 0; }
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;
+  color:#1a1a1a;background:#e8e8e8;line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── ページの器 ───────────────────────────── */
+.page{
+  width:210mm;min-height:297mm;background:#fff;margin:0 auto 10mm;
+  padding:13mm 15mm 10mm;position:relative;
+  display:flex;flex-direction:column;
+  box-shadow:0 3px 14px rgba(0,0,0,.14);
+  font-size:9.4pt;
+}
+.page-body{flex:1}
+.pfoot{
+  margin-top:5mm;padding-top:2mm;border-top:.5pt solid #d4d4d4;
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-size:7.5pt;color:#9a9a9a;
+}
+.pfoot .pno{font-weight:700;color:#666}
+.phead{
+  margin-bottom:4.5mm;padding-bottom:1.6mm;border-bottom:.5pt solid #d4d4d4;
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-size:7.5pt;color:#9a9a9a;letter-spacing:.02em;
+}
+.phead b{color:#1e40af;font-weight:700}
+
+/* ── 見出し ───────────────────────────────── */
+h2{
+  font-size:13pt;font-weight:700;color:#1e40af;line-height:1.3;
+  margin:0 0 2.5mm;padding-bottom:1.2mm;border-bottom:1.6pt solid #1e40af;
+  display:flex;align-items:baseline;gap:3mm;
+}
+h2 .num{
+  font-size:9pt;background:#1e40af;color:#fff;border-radius:4px;
+  padding:1px 7px;flex-shrink:0;
+}
+h2+.lead{color:#555;font-size:8.6pt;margin:-1mm 0 3mm}
+h3{
+  font-size:10.2pt;font-weight:700;color:#1a1a1a;margin:4mm 0 1.6mm;
+  padding-left:2.5mm;border-left:3.5pt solid #93c5fd;
+}
+h3:first-child{margin-top:0}
+h4{font-size:9pt;font-weight:700;color:#374151;margin:3mm 0 1.2mm}
+
+p{margin:0 0 2mm}
+ul,ol{margin:0 0 2.4mm;padding-left:5.2mm}
+li{margin-bottom:.8mm}
+li::marker{color:#6b7280}
+strong{font-weight:700}
+code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:8.5pt;background:#f1f5f9;border:.5pt solid #dbe3ec;
+  border-radius:3px;padding:.5px 4px;color:#1e3a8a;
+}
+
+/* ── 表 ───────────────────────────────────── */
+table{width:100%;border-collapse:collapse;margin:0 0 2.4mm;font-size:8.7pt;line-height:1.5}
+th,td{border:.5pt solid #d4d4d4;padding:1.2mm 2mm;text-align:left;vertical-align:top}
+th{background:#f0f4ff;color:#1e3a8a;font-weight:700;white-space:nowrap}
+td.c,th.c{text-align:center}
+tbody tr:nth-child(even) td{background:#fafafa}
+
+/* ── 注記ボックス ─────────────────────────── */
+.note,.warn,.tip{
+  border-radius:5px;padding:2mm 2.6mm;margin:0 0 2.4mm;font-size:8.7pt;line-height:1.55;
+  border:.5pt solid;border-left-width:3.5pt;
+}
+.note{background:#eff6ff;border-color:#93c5fd;color:#1e3a5f}
+.warn{background:#fef2f2;border-color:#f87171;color:#7f1d1d}
+.tip {background:#f0fdf4;border-color:#4ade80;color:#14532d}
+.note b,.warn b,.tip b{display:inline}
+
+/* ── 状態チップ ───────────────────────────── */
+.chip{
+  display:inline-block;font-size:8.5pt;font-weight:700;border-radius:4px;
+  padding:.5mm 2.2mm;border:.5pt solid;white-space:nowrap;
+}
+.c-empty {background:#eff6ff;border-color:#93c5fd;color:#1e40af}
+.c-green {background:#f0fdf4;border-color:#4ade80;color:#166534}
+.c-yellow{background:#fefce8;border-color:#facc15;color:#92400e}
+.c-red   {background:#fee2e2;border-color:#f87171;color:#991b1b}
+.c-wait  {background:#f3ede8;border-color:#c4a18a;color:#6b3a2a}
+.c-key{
+  display:inline-block;font-size:8.5pt;font-weight:700;background:#fff;
+  border:.5pt solid #bbb;border-bottom-width:1.5pt;border-radius:4px;
+  padding:.3mm 2mm;white-space:nowrap;color:#333;
+}
+
+/* ── 手順ステップ ─────────────────────────── */
+.steps{list-style:none;padding:0;margin:0 0 2.4mm;counter-reset:st}
+.steps>li{
+  position:relative;padding-left:7.5mm;margin-bottom:1.6mm;counter-increment:st;
+}
+.steps>li::before{
+  content:counter(st);position:absolute;left:0;top:.2mm;
+  width:5.4mm;height:5.4mm;border-radius:50%;background:#1e40af;color:#fff;
+  font-size:8pt;font-weight:700;display:flex;align-items:center;justify-content:center;
+}
+.steps>li>b{color:#1e3a8a}
+.steps .sub{font-size:8.4pt;color:#555;display:block;margin-top:.3mm;line-height:1.5}
+
+/* ── 表紙 ─────────────────────────────────── */
+.cover{justify-content:space-between;padding:22mm 20mm 14mm}
+.cover-top{text-align:center}
+.cover-eyebrow{
+  font-size:9.5pt;letter-spacing:.32em;color:#1e40af;font-weight:700;
+  margin-bottom:6mm;
+}
+.cover-rule{width:26mm;height:2pt;background:#1e40af;margin:0 auto 9mm}
+.cover-title{font-size:29pt;font-weight:800;line-height:1.32;letter-spacing:.01em}
+.cover-sub{font-size:13.5pt;font-weight:600;color:#444;margin-top:4mm}
+.cover-desc{font-size:9.5pt;color:#666;margin-top:7mm;line-height:1.9}
+
+.cheat-callout{
+  border:2.2pt solid #1e40af;border-radius:9px;background:#eff6ff;
+  padding:6mm 7mm;margin:11mm 0;text-align:center;
+}
+.cheat-callout .cc-mark{font-size:15pt;font-weight:800;color:#1e40af;letter-spacing:.02em}
+.cheat-callout .cc-lead{font-size:11pt;font-weight:700;margin-top:2.5mm;color:#1e3a5f}
+.cheat-callout .cc-note{font-size:9pt;color:#3b5578;margin-top:2.5mm;line-height:1.75}
+
+.toc{border:.5pt solid #d4d4d4;border-radius:6px;padding:4mm 5mm}
+.toc-h{font-size:9pt;font-weight:700;color:#1e40af;margin-bottom:2.5mm;letter-spacing:.06em}
+.toc ol{list-style:none;padding:0;margin:0;column-count:2;column-gap:8mm;font-size:9pt}
+.toc li{margin-bottom:1mm;break-inside:avoid;color:#333}
+.toc li span{color:#9a9a9a;font-size:8pt;margin-left:1.5mm}
+
+.cover-meta{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  border-top:.5pt solid #d4d4d4;padding-top:4mm;font-size:8.5pt;color:#666;
+}
+.cover-meta .cm-r{text-align:right;line-height:1.8}
+.cover-meta b{color:#1a1a1a}
+
+/* ── チートシート ─────────────────────────── */
+.cheat h2{margin-bottom:3mm}
+.cs-grid{display:grid;grid-template-columns:1fr 1fr;gap:2.6mm}
+.cs-card{
+  border:.5pt solid #d4d4d4;border-radius:6px;padding:2.2mm 2.8mm;
+  break-inside:avoid;
+}
+.cs-card.full{grid-column:1/-1}
+.cs-card .note,.cs-card .warn{font-size:8.4pt;line-height:1.5;padding:1.6mm 2.2mm}
+.cs-h{
+  font-size:9pt;font-weight:700;color:#1e40af;margin-bottom:1.4mm;
+  padding-bottom:.8mm;border-bottom:.5pt solid #cddcf5;
+}
+.cs-card ul,.cs-card ol{margin:0;padding-left:4.2mm;font-size:8.4pt;line-height:1.5}
+.cs-card li{margin-bottom:.6mm}
+.cs-card table{font-size:8.2pt;margin:0;line-height:1.45}
+.cs-card th,.cs-card td{padding:.9mm 1.5mm}
+.cs-flow{
+  display:flex;align-items:stretch;gap:0;font-size:8.2pt;text-align:center;
+}
+.cs-flow .fs{
+  flex:1;border:.5pt solid #93c5fd;background:#f7faff;border-radius:5px;
+  padding:1.6mm 1.2mm;line-height:1.45;
+}
+.cs-flow .fs b{display:block;font-size:8.6pt;color:#1e40af}
+.cs-flow .fa{
+  display:flex;align-items:center;color:#93c5fd;font-weight:700;padding:0 1.5mm;
+}
+.kv{font-size:8.4pt;line-height:1.5}
+.kv div{display:flex;gap:2mm;margin-bottom:1mm}
+.kv span:first-child{flex:0 0 20mm;font-weight:700;color:#374151}
+
+/* ── 画面表示（色の見本） ─────────────────── */
+.legend{display:flex;flex-wrap:wrap;gap:1.6mm;margin-bottom:2.2mm}
+
+/* ── メイン画面のイメージ図 ───────────────── */
+.mock{
+  border:.5pt solid #cfcfcf;border-radius:6px;overflow:hidden;
+  background:#f5f5f5;margin:0 0 3mm;font-size:7pt;line-height:1.3;
+}
+.mock .mk-grow{flex:1}
+.mk-hdr{display:flex;align-items:center;gap:2mm;background:#fff;padding:1.4mm 2.4mm;border-bottom:.5pt solid #e0e0e0}
+.mk-dot{width:1.6mm;height:1.6mm;border-radius:50%;background:#22c55e;flex-shrink:0}
+.mk-fest{color:#1e40af;background:#eff6ff;border:.5pt solid #bfdbfe;border-radius:3px;padding:.2mm 1.6mm;font-weight:700}
+.mk-btn{border:.5pt solid #ddd;border-radius:3px;padding:.2mm 1.6mm;color:#777;background:#fafafa}
+.mk-tabs,.mk-q{display:flex;align-items:center;gap:1.4mm;background:#fff;padding:1.2mm 2.4mm;border-bottom:.5pt solid #e0e0e0}
+.mk-tab{padding:.4mm 2.2mm;color:#6b7280;border-bottom:1.2pt solid transparent}
+.mk-tab.on{color:#1e40af;font-weight:700;border-bottom-color:#1e40af}
+.mk-link{border:.5pt solid #e0e0e0;border-radius:3px;padding:.2mm 1.4mm;color:#6b7280;background:#fff;white-space:nowrap}
+.mk-qin{flex:1;border:.5pt solid #ccc;border-radius:3px;padding:.5mm 2mm;color:#aaa;background:#fafafa}
+.mk-cols{display:flex}
+.mk-col{flex:1;padding:1.2mm 1.6mm;min-width:0}
+.mk-col-l{background:#f0f4ff;border-right:.5pt solid #e0e0e0}
+.mk-colh{font-weight:700;color:#374151;margin-bottom:1mm}
+.mk-stats{display:flex;flex-wrap:wrap;gap:1mm;margin-bottom:1mm}
+.mk-stats .chip{font-size:6.6pt;padding:.1mm 1.2mm}
+.mk-ctrl{color:#888;margin-bottom:1.2mm}
+.mk-sub{color:#888;font-weight:700;margin:1.2mm 0 .8mm}
+.mk-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.4mm}
+.mk-item{border:.5pt solid;border-radius:3px;padding:.8mm 1.2mm;min-height:6.5mm}
+.mk-ids{display:flex;gap:1mm;align-items:center;margin-bottom:.6mm}
+.mk-ids .c-key,.mk-ids .chip{font-size:6.4pt;padding:0 1.2mm;border-bottom-width:.5pt}
+.mk-nm{font-weight:700;color:#1a1a1a}
+.mk-sm{color:#555}
+.mk-tm{display:flex;justify-content:space-between;color:#777;margin-top:.4mm}
+.mk-tm .mk-w{color:#d97706;font-weight:700}
+.mk-tm .mk-d{color:#dc2626;font-weight:700}
+.mk-cap{
+  background:#fff;border-top:.5pt solid #e0e0e0;color:#888;
+  padding:.8mm 2.4mm;font-size:7.2pt;text-align:center;
+}
+
+/* ── 印刷 ─────────────────────────────────── */
+@media print{
+  body{background:#fff}
+  .page{
+    margin:0;box-shadow:none;width:210mm;height:297mm;min-height:auto;
+    break-after:page;page-break-after:always;overflow:hidden;
+  }
+  .page:last-child{break-after:auto;page-break-after:auto}
+  .screen-only{display:none !important}
+}
+
+/* ── 画面で見るときの案内 ─────────────────── */
+.screen-only{
+  width:210mm;margin:6mm auto 4mm;font-size:9pt;color:#555;
+  background:#fff;border:.5pt solid #d4d4d4;border-left:3.5pt solid #1e40af;
+  border-radius:5px;padding:3mm 4mm;line-height:1.75;
+}
+@media (max-width:220mm){
+  .page,.screen-only{width:100%;min-height:auto}
+  .page{padding:8mm 6mm}
+  .cs-grid{grid-template-columns:1fr}
+  .toc ol{column-count:1}
+}
+</style>
+</head>
+<body>
+
+<div class="screen-only">
+  この取扱説明書は <b>A4縦</b> での印刷を前提に作ってあります。ブラウザの印刷（<b>Ctrl / ⌘ + P</b>）から、
+  用紙 A4・余白「なし」・「背景のグラフィック」を有効にすると、画面と同じ体裁で出力できます。PDF として保存もできます。
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     1ページ目 — 表紙
+     ══════════════════════════════════════════════════════════ -->
+<section class="page cover">
+  <div class="cover-top">
+    <div class="cover-eyebrow">MONSTER BASH 救護所</div>
+    <div class="cover-rule"></div>
+    <div class="cover-title">ベッド・椅子<br>コントロール</div>
+    <div class="cover-sub">取扱説明書</div>
+    <div class="cover-desc">
+      ベッドと椅子の空き状況、患者さんの受け入れから退室までを、<br>
+      救護所のみんなの端末でリアルタイムに共有するためのアプリです。
+    </div>
+  </div>
+
+  <div class="cheat-callout">
+    <div class="cc-mark">▶ 2ページ目に簡易チートシートあり</div>
+    <div class="cc-lead">急いでいるときは、まず2ページ目だけ読んでください。</div>
+    <div class="cc-note">
+      受け入れ・移動・退室のやり方と、画面の色の意味が1枚にまとまっています。<br>
+      3ページ目からは、その詳しい説明と管理者向けの作業を載せています。
+    </div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-h">もくじ</div>
+    <ol>
+      <li>簡易チートシート <span>2</span></li>
+      <li>1. 画面の構成と共通のしくみ <span>3</span></li>
+      <li>2. ログイン <span>4</span></li>
+      <li>3. メイン画面の見方 <span>5</span></li>
+      <li>4. 患者さんを受け入れる <span>6</span></li>
+      <li>5. 状況が変わったとき <span>6</span></li>
+      <li>6. 別のベッド・椅子へ移動する <span>7</span></li>
+      <li>7. 退室させる <span>7</span></li>
+      <li>8. 患者さんを探す／送迎待ち <span>8</span></li>
+      <li>9. 退室済み一覧とゴミ箱 <span>8</span></li>
+      <li>10. 保存済みの記録・変更履歴 <span>9</span></li>
+      <li>11. ［管理者］ユーザー管理 <span>9</span></li>
+      <li>12. ［管理者］日次の締め <span>10</span></li>
+      <li>13. 困ったときは（Q&amp;A） <span>11</span></li>
+      <li>14. 用語集・できないこと <span>12</span></li>
+    </ol>
+  </div>
+
+  <div class="cover-meta">
+    <div>
+      <b>救護所 ベッド・椅子コントロール</b><br>
+      https://liptonist.github.io/monsterBash_bedControl/
+    </div>
+    <div class="cm-r">
+      対応バージョン <b>0.11.1</b><br>
+      © 2026 佐藤容平
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     2ページ目 — 簡易チートシート
+     ══════════════════════════════════════════════════════════ -->
+<section class="page cheat">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>簡易チートシート</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">早見</span>簡易チートシート</h2>
+
+    <div class="cs-grid">
+
+      <div class="cs-card full">
+        <div class="cs-h">受け入れから退室まで（この4つだけ覚えれば動かせます）</div>
+        <div class="cs-flow">
+          <div class="fs"><b>① 受け入れ</b>空いている枠をタップ →<br>重症度・氏名・症状を入れて<br>「保存する」</div>
+          <div class="fa">▶</div>
+          <div class="fs"><b>② 経過を更新</b>同じ枠をタップ →<br>重症度や症状を直して<br>「保存する」</div>
+          <div class="fa">▶</div>
+          <div class="fs"><b>③ 移動（任意）</b>編集画面の下 →<br>移動先を選んで<br>「この場所へ移動する」</div>
+          <div class="fa">▶</div>
+          <div class="fs"><b>④ 退室</b>編集画面で<br><u>転帰を選び</u><br>「退室する」</div>
+        </div>
+      </div>
+
+      <div class="cs-card">
+        <div class="cs-h">枠の色＝重症度</div>
+        <div class="legend">
+          <span class="chip c-empty">空き</span>
+          <span class="chip c-green">軽症</span>
+          <span class="chip c-yellow">中等症</span>
+          <span class="chip c-red">重症</span>
+          <span class="chip c-wait">送迎待ち</span>
+        </div>
+        <ul>
+          <li>枠の中の <b>◯分</b> は入室からの経過時間。<b>20分で橙、30分で赤</b>になります（声かけの目安）。</li>
+          <li>各列の上の「空◯／軽症◯／…」はその部屋の集計です。</li>
+        </ul>
+      </div>
+
+      <div class="cs-card">
+        <div class="cs-h">枠と患者の番号</div>
+        <div class="kv">
+          <div><span>B3</span><span>ベッド3番（部屋ごとに固定）</span></div>
+          <div><span>CI2 / CO1</span><span>室内椅子2番／室外椅子1番</span></div>
+          <div><span>1-042</span><span>患者ID＝「何日目 - 連番」</span></div>
+        </div>
+        <ul style="margin-top:1.5mm">
+          <li>患者IDは<b>空きの枠に登録した瞬間</b>に自動で採番されます。移動しても変わりません。</li>
+        </ul>
+      </div>
+
+      <div class="cs-card">
+        <div class="cs-h">よく使うボタン</div>
+        <table>
+          <tr><td style="width:24mm"><b>🔍 検索欄</b></td><td>患者ID・氏名・症状で<b>4部屋すべて</b>から探す</td></tr>
+          <tr><td><b>🚐 送迎待ち</b></td><td>送迎待ちの患者を全部屋分まとめて表示</td></tr>
+          <tr><td><b>＋ −</b></td><td>その部屋のベッド・椅子の数を増減（1〜40）</td></tr>
+          <tr><td><b>☀️ スリープ防止</b></td><td>その端末の画面が暗くならないようにする</td></tr>
+        </table>
+      </div>
+
+      <div class="cs-card">
+        <div class="cs-h">こんなときは</div>
+        <table>
+          <tr><td style="width:22mm"><b>間違えて<br>退室した</b></td><td>「📋 退室済み一覧」→ 該当行の<br><b>🛏️ 入室に戻す</b></td></tr>
+          <tr><td><b>間違えて<br>登録した</b></td><td>いったん<b>退室</b>し、退室済み一覧から<br><b>🗑️</b> でゴミ箱へ</td></tr>
+          <tr><td><b>患者が<br>見つからない</b></td><td>検索欄に患者IDか氏名の一部</td></tr>
+        </table>
+      </div>
+
+      <div class="cs-card full">
+        <div class="cs-h">忘れないでほしい3つ</div>
+        <div class="warn" style="margin-bottom:2mm">
+          <b>① 転帰は初期値が「経過観察」です。</b>
+          帰宅・救急搬送のときは、退室を押す<u>前に</u>必ず選び直してください。あとから直せるのは管理者だけです。
+        </div>
+        <div class="warn" style="margin-bottom:2mm">
+          <b>② 「⚠️ オフライン中」が出たら、ページを閉じない・再読み込みしない。</b>
+          まだ送れていない操作が消えます。電波が戻るまで、そのまま開いて待ってください。
+        </div>
+        <div class="note" style="margin-bottom:0">
+          <b>③ 画面下に「保存中です」と出ている間は、まだ届いていません。</b>
+          「保存しました」に変われば完了です。緑の点が点滅していれば通信は正常です。
+        </div>
+      </div>
+
+      <div class="cs-card full">
+        <div class="cs-h">1日目が終わったら（管理者のみ）</div>
+        <ul style="column-count:2;column-gap:6mm">
+          <li><b>入室中の枠を全部ゼロにしてから</b>締めます（残っていると翌日にID重複の恐れ）。</li>
+          <li>「📋 退室済み一覧」の最下部 →「📦 日次の締め」→<b>この日を締める</b>。</li>
+          <li>その日の記録が「📦 保存済み」へ移り、患者IDが <b>2-001</b> から再開します。</li>
+          <li><b>締めは取り消せません。</b>実行前に一覧の件数を確認してください。</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+  <div class="pfoot"><span>詳しい説明は3ページ目から</span><span class="pno">2</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     3ページ目 — 画面の構成と共通のしくみ
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>1. 画面の構成と共通のしくみ</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">1</span>画面の構成と共通のしくみ</h2>
+    <p class="lead">ここから詳しい説明です。まず全体像と、どの画面にも共通する部分から説明します。</p>
+
+    <h3>1-1. 5つの画面</h3>
+    <p>画面はすべて、メイン画面の上部にある<b>タブ行</b>から行き来できます。同じタブの中で開くので、押しても新しいタブは増えません。</p>
+    <table>
+      <thead><tr><th style="width:34mm">画面</th><th>できること</th><th class="c" style="width:22mm">使える人</th></tr></thead>
+      <tbody>
+        <tr><td><b>メイン画面</b></td><td>部屋ごとのベッド・椅子の状況、患者さんの受け入れ・編集・移動・退室、全部屋横断の検索</td><td class="c">全員</td></tr>
+        <tr><td><b>📋 退室済み一覧</b></td><td>その日に退室した患者さんの記録、ゴミ箱、CSV書き出し、日次の締め</td><td class="c">全員<br>（締めは管理者）</td></tr>
+        <tr><td><b>📦 保存済み</b></td><td>締めて保存した日ごとの記録を閲覧（読み取り専用）、CSV書き出し</td><td class="c">全員</td></tr>
+        <tr><td><b>🕘 変更履歴</b></td><td>誰がいつ何を変更したかの記録</td><td class="c">全員</td></tr>
+        <tr><td><b>👥 ユーザー管理</b></td><td>使う人の追加・削除、パスワードの管理</td><td class="c">管理者のみ</td></tr>
+      </tbody>
+    </table>
+    <p>タブ行の右端の <b>©</b> ボタンから、アプリの名称・バージョン・修正履歴を見られます。不具合を報告するときは、ここのバージョン番号を添えてください。</p>
+
+    <h3>1-2. 保存できているかの見分け方</h3>
+    <p>操作するとまず画面がすぐ変わりますが、それは<u>手元の表示が変わっただけ</u>です。ほかの人の端末に届いたかどうかは、次の2か所で確認します。</p>
+    <table>
+      <thead><tr><th style="width:38mm">表示</th><th>意味</th><th style="width:44mm">どうするか</th></tr></thead>
+      <tbody>
+        <tr><td>画面下「<b>保存中です</b>」</td><td>まだ送信中</td><td>そのまま待つ</td></tr>
+        <tr><td>画面下「<b>保存しました</b>」</td><td>全員に反映済み</td><td>次の作業へ</td></tr>
+        <tr><td>ヘッダの<b>緑の点</b>が点滅</td><td>通信は正常</td><td>—</td></tr>
+        <tr><td>ヘッダの<b>橙の点</b></td><td>送信中</td><td>そのまま待つ</td></tr>
+        <tr><td>ヘッダの<b>赤の点</b></td><td>回線が切れている</td><td>下の警告を参照</td></tr>
+      </tbody>
+    </table>
+    <p>保存が終わらないうちに別のページへ移ろうとしても、完了を待ってから移動するようになっています。</p>
+
+    <div class="warn">
+      <b>回線が切れたときは、ページを閉じないでください。</b>
+      画面の上に「⚠️ オフライン中」の警告が出ます。<b>この状態でページを閉じたり再読み込みしたりすると、まだ送れていない操作は失われます。</b>
+      このアプリには、あとでまとめて送り直すしくみはありません。電波が戻れば自動で送信されるので、警告が消えるまでページを開いたまま待ってください。
+      会場では、電波の届く場所へ端末ごと移動するのがいちばん確実です。
+    </div>
+
+    <h3>1-3. 通信が不安定な場所での使い方</h3>
+    <ul>
+      <li>会場の隅やテントの奥は電波が弱いことがあります。<b>操作するときだけ電波の良い場所へ移動する</b>と確実です。</li>
+      <li>反映されないときに<b>何度も押し直す必要はありません。</b>送信は自動で続いています。</li>
+      <li>据え置き端末は、電波の良い位置に置いてから固定してください。</li>
+    </ul>
+  </div>
+  <div class="pfoot"><span>1. 画面の構成と共通のしくみ</span><span class="pno">3</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     4ページ目 — 共通のしくみ（続き）／ログイン
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>1. 共通のしくみ（続き）／2. ログイン</b></span></div>
+  <div class="page-body">
+    <h3>1-4. 画面が暗くなるのを防ぐ</h3>
+    <p>タブ行の右にある <b>☀️ スリープ防止</b> を押すと、その端末の画面が自動的に暗くならなくなります。</p>
+    <ul>
+      <li><b>初期状態はオフ</b>です。押した状態はその端末に記憶され、次に開いたときも引き継がれます。</li>
+      <li>電池の消耗が早くなるので、<b>据え置きで表示しっぱなしにする端末だけ</b>オンにしてください。</li>
+      <li>対応していないブラウザではボタン自体が表示されません。その場合は端末側の設定で画面が消えないようにしてください。</li>
+    </ul>
+
+    <h3>1-5. 同時に使うときの注意</h3>
+    <div class="note">
+      <b>同じ枠を2人が同時に編集すると、あとから保存したほうの内容で上書きされます。</b>
+      編集画面は「開いた時点の値」を持っているためです。別々の枠を触っている限り、何人で同時に使っても問題ありません。
+      同じ患者さんを2人で触りそうなときは、ひと声かけてから開いてください。
+    </div>
+
+    <h3>1-6. 使う端末とブラウザ</h3>
+    <p>インストールは不要です。<b>ブラウザで URL を開くだけ</b>で、スマートフォン・タブレット・パソコンのどれでも同じように使えます。</p>
+    <ul>
+      <li>当日いちばん使う端末では、URL を<b>ブックマーク（またはホーム画面に追加）</b>しておくと、開き直すのが速くなります。</li>
+      <li>一度ログインすれば、<b>同じ端末・同じブラウザなら次回から自動でログイン状態が続きます</b>（自分でログアウトするまで）。当日の朝に全員分のログインを済ませておくと安心です。</li>
+      <li>プライベートモード（シークレットウィンドウ）では毎回ログインが必要になります。当日は通常のウィンドウで使ってください。</li>
+    </ul>
+
+    <h2 style="margin-top:7mm"><span class="num">2</span>ログイン</h2>
+
+    <p>ログイン方法は2通りあり、どちらでも構いません。いずれの場合も、<b>管理者が許可リストに登録した人しかデータを見られません。</b></p>
+    <table>
+      <thead><tr><th style="width:42mm">方法</th><th>手順</th></tr></thead>
+      <tbody>
+        <tr><td><b>Google アカウント</b></td><td>「Googleでログイン」を押して、いつものアカウントを選ぶ</td></tr>
+        <tr><td><b>ID とパスワード</b></td><td>管理者から配られたメールアドレスとパスワードを入力する</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>パスワードを忘れたときは、ログイン画面の<b>「パスワードを忘れた場合」</b>から自分で再設定できます。</li>
+      <li>ログインできるのにデータが出ない場合は、許可リストに未登録です。画面に表示される内容を管理者に伝えてください。</li>
+      <li>Google ログインは通常ポップアップで開きます。ポップアップがブロックされる端末では、<b>画面ごと切り替わってから戻ってきます</b>（正常な動作です）。</li>
+      <li>ログアウトはヘッダ右上の<b>「ログアウト」</b>です。共用端末では使い終わったらログアウトしてください。</li>
+      <li>それでも入れないときは、<b>11ページの「困ったときは」</b>を見てください。</li>
+    </ul>
+
+  </div>
+  <div class="pfoot"><span>1. 共通のしくみ（続き）／2. ログイン</span><span class="pno">4</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     5ページ目 — メイン画面の見方
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>3. メイン画面の見方</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">3</span>メイン画面の見方</h2>
+
+    <div class="mock">
+      <div class="mk-hdr"><span class="mk-dot"></span><span class="mk-fest">2026年 1日目</span><span class="mk-grow"></span><span class="mk-btn">ログアウト</span></div>
+      <div class="mk-tabs">
+        <span class="mk-tab on">本部</span><span class="mk-tab">空海横</span><span class="mk-tab">サーカス</span><span class="mk-tab">茶堂</span>
+        <span class="mk-grow"></span>
+        <span class="mk-link">📋 退室済み一覧</span><span class="mk-link">📦 保存済み</span><span class="mk-link">🕘 変更履歴</span><span class="mk-link">☀️ スリープ防止</span><span class="mk-link">©</span>
+      </div>
+      <div class="mk-q"><span class="mk-qin">患者ID・氏名・症状で全部屋から探す</span><span class="mk-link">🚐 送迎待ち 2</span></div>
+      <div class="mk-cols">
+        <div class="mk-col mk-col-l">
+          <div class="mk-colh">🛏️ ベッド</div>
+          <div class="mk-stats"><span class="chip c-empty">空 7</span><span class="chip c-green">軽症 2</span><span class="chip c-yellow">中等症 1</span><span class="chip c-red">重症 0</span><span class="chip c-wait">待 0</span></div>
+          <div class="mk-ctrl">数： − 10 ＋</div>
+          <div class="mk-grid">
+            <div class="mk-item c-green"><div class="mk-ids"><span class="c-key">B1</span><span class="chip c-green">1-012</span></div><div class="mk-nm">山田 太郎</div><div class="mk-sm">熱中症</div><div class="mk-tm"><span>13:20</span><span>12分</span></div></div>
+            <div class="mk-item c-yellow"><div class="mk-ids"><span class="c-key">B2</span><span class="chip c-yellow">1-015</span></div><div class="mk-nm">佐藤 花子</div><div class="mk-sm">気分不良</div><div class="mk-tm"><span>13:05</span><span class="mk-w">27分</span></div></div>
+            <div class="mk-item c-empty"><div class="mk-ids"><span class="c-key">B3</span></div><div class="mk-nm">空き</div></div>
+            <div class="mk-item c-empty"><div class="mk-ids"><span class="c-key">B4</span></div><div class="mk-nm">空き</div></div>
+          </div>
+        </div>
+        <div class="mk-col">
+          <div class="mk-colh">🪑 椅子</div>
+          <div class="mk-sub">室内椅子</div>
+          <div class="mk-grid">
+            <div class="mk-item c-green"><div class="mk-ids"><span class="c-key">CI1</span><span class="chip c-green">1-018</span></div><div class="mk-nm">鈴木 次郎</div><div class="mk-tm"><span>13:28</span><span>4分</span></div></div>
+            <div class="mk-item c-empty"><div class="mk-ids"><span class="c-key">CI2</span></div><div class="mk-nm">空き</div></div>
+          </div>
+          <div class="mk-sub">室外椅子</div>
+          <div class="mk-grid">
+            <div class="mk-item c-green"><div class="mk-ids"><span class="c-key">CO1</span><span class="chip c-wait">送迎待ち</span></div><div class="mk-nm">田中 三郎</div><div class="mk-tm"><span>12:40</span><span class="mk-d">52分</span></div></div>
+            <div class="mk-item c-empty"><div class="mk-ids"><span class="c-key">CO2</span></div><div class="mk-nm">空き</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="mk-cap">メイン画面のイメージ（本部タブを開いたところ）</div>
+    </div>
+
+    <h3>3-1. 部屋と枠</h3>
+    <p>部屋は <b>本部・空海横・サーカス・茶堂</b> の4つで、上のタブで切り替えます。各部屋の中は左右2列で、<b>左が🛏️ベッド、右が🪑椅子</b>（室内椅子・室外椅子）です。列の上の「数：<b>−</b> ◯ <b>＋</b>」で、枠の数を <b>1〜40</b> の範囲で増減できます。</p>
+    <p>枠のIDは部屋ごとに固定です（<span class="c-key">B3</span> ベッド3番／<span class="c-key">CI2</span> 室内椅子2番／<span class="c-key">CO1</span> 室外椅子1番）。<u>部屋が違えば同じ番号があります</u>ので、無線で伝えるときは部屋名も添えてください。</p>
+
+    <h3>3-2. 枠の色と表示</h3>
+    <p>枠の色は<b>重症度（トリアージ）</b>を表し、列の上にはその部屋の集計が並びます。</p>
+    <div class="legend">
+      <span class="chip c-empty">空き</span>
+      <span class="chip c-green">軽症</span>
+      <span class="chip c-yellow">中等症</span>
+      <span class="chip c-red">重症</span>
+      <span class="chip c-wait">送迎待ち</span>
+    </div>
+    <p>埋まっている枠には、枠ID・患者ID・氏名・年齢と性別・症状・入室時刻と経過時間が表示され、送迎待ちの患者さんには <span class="chip c-wait">送迎待ち</span> の印が付きます。</p>
+
+    <h3>3-3. 経過時間の色</h3>
+    <p>枠の右下の「◯分」は<b>入室からの経過時間</b>です。時間が延びると自動で色が変わるので、声かけや再評価の目安に使ってください。</p>
+    <table>
+      <thead><tr><th class="c" style="width:30mm">経過時間</th><th class="c" style="width:24mm">色</th><th>目安</th></tr></thead>
+      <tbody>
+        <tr><td class="c">0〜19分</td><td class="c">通常（黒）</td><td>—</td></tr>
+        <tr><td class="c">20分以上</td><td class="c" style="color:#d97706;font-weight:700">橙</td><td>そろそろ様子を見に行く</td></tr>
+        <tr><td class="c">30分以上</td><td class="c" style="color:#dc2626;font-weight:700">赤</td><td>再評価・転帰の判断をする</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3-4. 患者ID</h3>
+    <p>患者IDは <code>2026-1-001</code> の形式で、<b>開催年 - 何日目 - 連番3桁</b> です。画面上は年を省いて <b>1-001</b> と表示しますが、保存されるデータや CSV には年も入っています。</p>
+    <div class="tip">
+      連番は複数の端末から同時に登録しても<b>重複しません</b>。番号が飛ぶことはありますが、異常ではありません。
+    </div>
+  </div>
+  <div class="pfoot"><span>3. メイン画面の見方</span><span class="pno">5</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     6ページ目 — 受け入れ／編集
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>4. 受け入れ／5. 状況が変わったとき</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">4</span>患者さんを受け入れる</h2>
+
+    <ol class="steps">
+      <li><b>空いている枠をタップします。</b>
+        <span class="sub">青い「空き」の枠を押すと、編集画面が開きます。</span></li>
+      <li><b>状態（トリアージ）を選びます。</b>
+        <span class="sub">
+          <span class="chip c-green">軽症</span>
+          <span class="chip c-yellow">中等症</span>
+          <span class="chip c-red">重症</span>
+          の3つから選びます。ここに「空き」はありません（下の注記を参照）。
+        </span></li>
+      <li><b>氏名・年齢・性別・症状を入れます。</b>
+        <span class="sub">症状は <b>熱中症</b> / <b>気分不良</b> のボタンで素早く入れられます。それ以外は自由に入力してください。分かる範囲で構いません。あとから足せます。</span></li>
+      <li><b>入室時刻を確認します。</b>
+        <span class="sub">現在時刻が自動で入ります。あとから登録するときは、実際の入室時刻に直してください。</span></li>
+      <li><b>「保存する」を押します。</b>
+        <span class="sub">枠の色が変わり、患者IDが自動で発番されます。画面下が「保存しました」に変われば全員に反映されています。</span></li>
+    </ol>
+
+    <div class="note">
+      <b>編集画面から「空き」には戻せません。</b>
+      枠が空きに戻るのは<b>退室</b>か<b>移動</b>のときだけです。誤って登録してしまった枠は、<u>いったん退室させてから、退室済み一覧でゴミ箱へ入れて</u>ください（9章）。
+    </div>
+
+    <h2 style="margin-top:7mm"><span class="num">5</span>状況が変わったとき</h2>
+
+    <p>すでに埋まっている枠をタップすると、同じ編集画面が開きます。内容を直して<b>「保存する」</b>を押してください。患者IDと入室時刻はそのまま引き継がれます。</p>
+
+    <h3>5-1. 重症度が変わったとき</h3>
+    <p>状態を選び直して保存すれば、枠の色と部屋の集計がすぐ変わります。<b>悪化したときの中等症・重症への変更は、いちばん重要な操作です。</b>色が変われば、離れた場所の端末を見ている人にもすぐ伝わります。</p>
+
+    <h3>5-2. 送迎待ち（🚐）</h3>
+    <p>編集画面の<b>「送迎待ち」</b>にチェックを入れて保存すると、枠に <span class="chip c-wait">送迎待ち</span> の印が付き、部屋の集計の「待◯」に数えられます。迎えの車を待っているだけで処置は終わっている、という状態を共有するために使います。</p>
+    <p>送迎待ちの患者さんは、メイン画面の <b>🚐 送迎待ち</b> ボタンで<b>全部屋分をまとめて</b>確認できます（8章）。</p>
+
+    <h3>5-3. 入室時刻を直したいとき</h3>
+    <p>編集画面の入室時刻は <code>HH:MM</code> で入力します。あとから登録した患者さんは、実際に来た時刻に直しておくと、経過時間の色と滞在時間の記録が正しくなります。</p>
+    <div class="tip">
+      <b>日付をまたいでも大丈夫です。</b><code>23:50 入室 → 00:10 退室</code> のような場合も、滞在時間は 20 分と正しく数えます。時刻だけ入れてください。
+    </div>
+
+    <h3>5-4. ベッド・椅子の数を増やす／減らす</h3>
+    <p>各列の上の <b>＋</b> <b>−</b> で、その部屋の枠の数を <b>1〜40</b> の範囲で変えられます。減らすときは<b>末尾の枠から消えます</b>。埋まっている枠を消さないよう、先に患者さんを別の枠へ移動させてください。</p>
+  </div>
+  <div class="pfoot"><span>4. 患者さんを受け入れる／5. 状況が変わったとき</span><span class="pno">6</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     7ページ目 — 移動／退室
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>6. 移動／7. 退室</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">6</span>別のベッド・椅子へ移動する</h2>
+
+    <p>椅子からベッドへ、あるいは別の部屋へ患者さんを移すときに使います。<b>部屋をまたいだ移動もできます。</b></p>
+
+    <ol class="steps">
+      <li><b>移す患者さんの枠をタップします。</b></li>
+      <li><b>編集画面の下にある「🔀 別のベッド・椅子へ移動」を開きます。</b></li>
+      <li><b>移動先の部屋・種別（ベッド／室内椅子／室外椅子）を選びます。</b>
+        <span class="sub">その組み合わせで空いている番号だけが「移動先の空き番号」に出ます。ひとつも空きがなければ「空きなし」と表示されます。</span></li>
+      <li><b>番号を選んで「この場所へ移動する」を押します。</b>
+        <span class="sub">確認のメッセージが出るので、患者さんと移動先が合っているか確かめて OK を押してください。</span></li>
+    </ol>
+
+    <p>移動すると、患者ID・氏名・症状・重症度・送迎待ち・<b>入室時刻</b>がそのまま移動先へ引き継がれ、元の枠は空きに戻ります。滞在時間は最初の入室時刻から数え続けます。</p>
+    <p>移動画面を開く前に編集画面で直した内容（重症度・氏名・症状など）も、そのまま移動先へ反映されます。<b>移動の前に「保存する」を押しておく必要はありません。</b></p>
+
+    <div class="note">
+      移動先の書き込みと元の枠の消去は<b>まとめて処理される</b>ので、「どちらにもいる」「どちらからも消えた」という状態にはなりません。
+      ただし、選んでいる間にほかの人が同じ枠を埋めてしまうと、「選択した移動先はすでに使用中です」と出ます。その場合は選び直してください。
+    </div>
+
+    <h2 style="margin-top:7mm"><span class="num">7</span>退室させる</h2>
+
+    <ol class="steps">
+      <li><b>退室する患者さんの枠をタップします。</b></li>
+      <li><b>退室時刻を確認します。</b>
+        <span class="sub">現在時刻が入っています。時間が経ってから処理するときは、実際に帰られた時刻に直してください。</span></li>
+      <li><b>転帰を選びます。</b>
+        <span class="sub"><b>経過観察</b>／<b>帰宅</b>／<b>救急搬送</b> の3つから選びます。</span></li>
+      <li><b>赤い「退室する」を押します。</b>
+        <span class="sub">記録が「📋 退室済み一覧」へ移り、枠が空きに戻ります。滞在時間も自動で計算されます。</span></li>
+    </ol>
+
+    <div class="warn">
+      <b>転帰の初期値は「経過観察」です。</b>
+      <b>帰宅</b>や<b>救急搬送</b>のときは、退室を押す<u>前に</u>必ず選び直してください。
+      いったん確定した退室記録を書き換えられるのは<b>管理者だけ</b>です（一般ユーザーは直せません）。
+      救急搬送の件数は撤収後の報告でそのまま使う数字なので、ここだけは急いでいても確認をお願いします。
+    </div>
+
+    <div class="tip">
+      <b>間違えて退室させてしまったときは戻せます。</b>
+      「📋 退室済み一覧」を開き、その行の <b>🛏️ 入室に戻す</b> から、部屋と空いている枠を選んで戻してください。退室記録は一覧から消えてゴミ箱へ移ります（9章）。
+    </div>
+  </div>
+  <div class="pfoot"><span>6. 別のベッド・椅子へ移動する／7. 退室させる</span><span class="pno">7</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     8ページ目 — 検索／退室済み一覧
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>8. 探す／9. 退室済み一覧とゴミ箱</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">8</span>患者さんを探す／送迎待ちを確認する</h2>
+
+    <h3>8-1. 全部屋から探す</h3>
+    <p>部屋タブの下の検索欄に、<b>患者ID・氏名・症状</b>のいずれかを入れると、<b>4部屋すべての埋まっている枠</b>から探します。部屋を切り替えて回る必要はありません。</p>
+    <ul>
+      <li>結果をタップすると、その部屋に切り替わって編集画面が開きます。</li>
+      <li>患者IDは <code>042</code> や <code>1-042</code> のように、一部だけでも探せます。</li>
+      <li>やめるときは検索欄の右の <b>✕</b> を押します。</li>
+    </ul>
+    <div class="tip">
+      無線で「<b>1-042 の人はどこ？</b>」と聞かれたときは、この検索欄に <code>042</code> と入れるのがいちばん速い方法です。
+    </div>
+
+    <h3>8-2. 送迎待ちの一覧（🚐）</h3>
+    <p>検索欄の隣の <b>🚐 送迎待ち</b> を押すと、送迎待ちにチェックが入っている患者さんが全部屋分まとめて出ます。ボタンの数字はその件数なので、<b>押さなくても「いま何人待っているか」が分かります</b>。迎えの車が着いたときの引き当てに使ってください。</p>
+
+    <h2 style="margin-top:7mm"><span class="num">9</span>退室済み一覧とゴミ箱</h2>
+
+    <p>タブの <b>📋 退室済み一覧</b> から開きます。その日に退室した患者さんの記録が新しい順に並び、上部には総退室数・平均滞在時間・救急搬送の件数・部屋ごとの件数が出ます。</p>
+
+    <h3>9-1. 絞り込みと CSV</h3>
+    <ul>
+      <li><b>部屋・種別・転帰</b>で絞り込めます。</li>
+      <li><b>⬇️ CSVで保存</b>で、<u>そのとき絞り込んでいる内容がそのまま</u>書き出されます。Excel でそのまま開ける形式（UTF-8 BOM 付き）で、時刻は日付込み（<code>2026-08-22 23:50</code>）です。撤収後の報告や集計に使ってください。</li>
+    </ul>
+
+    <h3>9-2. 記録の取り消し（ゴミ箱）</h3>
+    <table>
+      <thead><tr><th style="width:36mm">ボタン</th><th>動き</th></tr></thead>
+      <tbody>
+        <tr><td><b>🛏️ 入室に戻す</b></td><td>誤って退室にした患者さんを、もう一度ベッド・椅子に入れます。部屋と空いている枠を選びます。退室記録は一覧から消え、ゴミ箱へ移ります。</td></tr>
+        <tr><td><b>🗑️</b></td><td>その記録をゴミ箱へ移します（消えてはいません）。誤って登録した患者さんの記録を、集計から外すときに使います。</td></tr>
+        <tr><td><b>↩️ 一覧に戻す</b></td><td>ゴミ箱の中の記録を、退室済み一覧へ戻します。</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      ゴミ箱は<b>取り消しのきく削除</b>です。ページ下部の「🗑️ ゴミ箱」に残り続け、日次の締め（12章）のときに一緒に保存されます。
+      一般ユーザーが記録を完全に消すことはできません。<b>迷ったらゴミ箱へ入れておけば、あとから戻せます。</b>
+    </div>
+  </div>
+  <div class="pfoot"><span>8. 患者さんを探す／9. 退室済み一覧とゴミ箱</span><span class="pno">8</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     9ページ目 — 保存済み・変更履歴／ユーザー管理
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>10. 保存済み・変更履歴／11. ユーザー管理</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">10</span>保存済みの記録・変更履歴</h2>
+
+    <h3>10-1. 📦 保存済み</h3>
+    <p>日次の締め（12章）で保存した、日ごとの記録を閲覧する画面です。左で日を選ぶと、その日の退室記録とゴミ箱の内容が表示されます。</p>
+    <ul>
+      <li><b>読み取り専用です。</b>ここから書き換えたり、元に戻したりはできません。</li>
+      <li><b>⬇️ CSVで保存</b>で書き出せます。2日目の朝に前日分を集計したいときは、この画面を使ってください。</li>
+    </ul>
+
+    <h3>10-2. 🕘 変更履歴</h3>
+    <p>誰がいつ何をしたかが記録されています。登録・編集・退室・移動・枠数の変更・ゴミ箱の操作・ユーザーの増減・日次の締めが対象です。</p>
+    <ul>
+      <li><b>ユーザー・操作の種類・キーワード</b>で絞り込めます。</li>
+      <li>「あの患者さん、いつ誰が退室にしたんだっけ？」を追うときに使います。</li>
+      <li>表示される名前は、許可リストに登録した名前が優先で、無ければ Google アカウントのプロフィール名です。<b>メールアドレスは画面に出ません。</b></li>
+    </ul>
+
+    <h2 style="margin-top:7mm"><span class="num">11</span>［管理者］ユーザー管理</h2>
+    <p class="lead">タブの <b>👥 ユーザー管理</b> から開きます。管理者だけに表示されます。</p>
+
+    <h3>11-1. 使う人を追加する</h3>
+    <p>メールアドレス・表示名・パスワード（任意）を入れて<b>「追加」</b>を押します。パスワードを入れるかどうかで意味が変わります。</p>
+    <table>
+      <thead><tr><th style="width:40mm">パスワード欄</th><th>結果</th></tr></thead>
+      <tbody>
+        <tr><td><b>空欄のまま</b></td><td>許可リストへの登録だけを行います。<b>Google アカウントでログインする人</b>はこちらです。</td></tr>
+        <tr><td><b>入力する</b></td><td>ログイン用のアカウントも同時に作ります。ID（メールアドレス）とパスワードを本人に渡してください。<b>この場合は表示名が必須です</b>（無いと変更履歴が「(名前未設定)」になるため）。</td></tr>
+      </tbody>
+    </table>
+    <p><b>「管理者」</b>にチェックを入れると、その人もユーザー管理と日次の締めができるようになります。当日の運用では、<b>管理者は最小限</b>にしておくのが安全です。</p>
+
+    <h3>11-2. パスワードの変更・再設定</h3>
+    <ul>
+      <li><b>変更</b> … 今のパスワードが分かっている場合に、新しいものへ変える</li>
+      <li><b>再設定</b> … 本人宛に再設定メールを送る。分からない場合はこちら</li>
+    </ul>
+
+    <h3>11-3. 削除するとき</h3>
+    <div class="warn">
+      許可リストから消せば、その人はデータに一切アクセスできなくなります。
+      ただし<b>ログイン用アカウント自体は残る</b>ため、完全に消す場合は Firebase コンソールの <b>Authentication → Users</b> から削除してください。
+      <u>逆の順序（アカウントだけ先に削除）は避けてください。</u>そのメールアドレスを第三者に先取りされる余地が残ります。この画面から削除すれば、許可リストが先に消えるので安全です。
+    </div>
+  </div>
+  <div class="pfoot"><span>10. 保存済みの記録・変更履歴／11. ［管理者］ユーザー管理</span><span class="pno">9</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     10ページ目 — 日次の締め
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>12. ［管理者］日次の締め</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">12</span>［管理者］日次の締め</h2>
+    <p class="lead">2日間開催の運用で、1日目が終わったときに行う作業です。管理者だけが実行できます。</p>
+
+    <h3>12-1. 開催年・開催日の確認（開催初日の前に）</h3>
+    <p>「📋 退室済み一覧」の最下部にある<b>「📦 日次の締め」</b>の中に、現在の開催年と開催日が表示されています。<b>「開催年・日を修正」</b>から変更できます。</p>
+    <div class="warn">
+      <b>開催初日の朝、最初の患者さんを受け入れる前に、年と日が正しいか必ず確認してください。</b>
+      患者IDはこの値から作られるため、間違ったまま運用すると、すべての記録に誤った番号が付きます。
+    </div>
+
+    <h3>12-2. 締める前のチェック</h3>
+    <ol class="steps">
+      <li><b>入室中の枠がゼロになっているか確認します。</b>
+        <span class="sub">4部屋すべてを見て、埋まっている枠が残っていないことを確認してください。残っていると警告が出ます。</span></li>
+      <li><b>残っている患者さんは、先に退室処理をします。</b>
+        <span class="sub">その患者さんは当日のIDを持ったまま翌日に残るため、翌日の番号と重複する可能性があります。</span></li>
+      <li><b>退室済み一覧の件数を確認します。</b>
+        <span class="sub">締めは取り消せません。必要なら先に <b>⬇️ CSVで保存</b> をしておくと安心です。</span></li>
+    </ol>
+
+    <h3>12-3. 締める</h3>
+    <p>「📦 日次の締め」の <b>「この日を締める」</b> を押します。次の4つが<b>まとめて</b>実行されます。</p>
+    <table>
+      <thead><tr><th class="c" style="width:12mm">#</th><th>実行される内容</th></tr></thead>
+      <tbody>
+        <tr><td class="c"><b>1</b></td><td>その日の退室済み一覧とゴミ箱を、<b>📦 保存済み</b>へ移す</td></tr>
+        <tr><td class="c"><b>2</b></td><td>退室済み一覧とゴミ箱を空にする</td></tr>
+        <tr><td class="c"><b>3</b></td><td>患者IDの連番を 1 に戻す</td></tr>
+        <tr><td class="c"><b>4</b></td><td>開催日を1つ繰り上げる（翌日は <code>2-001</code> から始まります）</td></tr>
+      </tbody>
+    </table>
+    <p>4つはまとめて処理されるので、途中で通信が切れても「消えたのに保存されていない」状態にはなりません。</p>
+
+    <div class="warn">
+      <b>締めは取り消せません。</b>
+      誤って締めてしまった場合、Firebase コンソールから手作業で戻すしかありません。実行前にもう一度、入室中の枠と一覧の件数を確認してください。
+    </div>
+
+    <h3>12-4. 締めたあと</h3>
+    <ul>
+      <li>保存した内容は <b>📦 保存済み</b> で日を選んで閲覧できます（読み取り専用）。</li>
+      <li>翌日はそのまま、いつもどおり受け入れを始められます。患者IDは <code>2-001</code> から採番されます。</li>
+      <li>締めたあとに古い画面を開いたままの端末があっても、患者番号は自動で更新されます。心配なときは再読み込みしてください（<u>オフライン警告が出ていないことを確認してから</u>）。</li>
+    </ul>
+  </div>
+  <div class="pfoot"><span>12. ［管理者］日次の締め</span><span class="pno">10</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     11ページ目 — 困ったときは
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>13. 困ったときは</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">13</span>困ったときは（Q&amp;A）</h2>
+
+    <table>
+      <thead><tr><th style="width:56mm">こんなとき</th><th>どうするか</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>間違えて退室させてしまった</b></td>
+          <td>「📋 退室済み一覧」→ 該当行の <b>🛏️ 入室に戻す</b> → 部屋と空き枠を選ぶ。退室記録はゴミ箱へ移ります。</td>
+        </tr>
+        <tr>
+          <td><b>間違えて患者を登録してしまった</b></td>
+          <td>編集画面から「空き」には戻せません。いったん<b>退室</b>させ、退室済み一覧でその行を <b>🗑️</b> でゴミ箱へ入れてください。</td>
+        </tr>
+        <tr>
+          <td><b>転帰を間違えて退室した</b></td>
+          <td>確定した記録を直せるのは<b>管理者だけ</b>です。管理者に伝えてください。急ぐ場合は「🛏️ 入室に戻す」→ 転帰を選び直して再度退室、という手も使えます。</td>
+        </tr>
+        <tr>
+          <td><b>患者さんが見つからない</b></td>
+          <td>検索欄に患者IDの下3桁か氏名の一部を入れると、4部屋すべてから探せます。</td>
+        </tr>
+        <tr>
+          <td><b>「⚠️ オフライン中」が出た</b></td>
+          <td><b>ページを閉じない・再読み込みしない。</b>電波の届く場所へ移動し、警告が消えるまで待ってください。閉じると未送信の操作は失われます。</td>
+        </tr>
+        <tr>
+          <td><b>「保存中です」から変わらない</b></td>
+          <td>回線が不安定です。上と同じ対応をしてください。何度も押し直す必要はありません（押し直しても送信は速くなりません）。</td>
+        </tr>
+        <tr>
+          <td><b>ほかの人の端末に反映されない</b></td>
+          <td>自分の画面が「保存しました」になっているか確認してください。なっていれば、相手側の回線の問題です。</td>
+        </tr>
+        <tr>
+          <td><b>自分の入力が消えている／戻っている</b></td>
+          <td>同じ枠をほかの人が同時に編集し、あとから保存した可能性があります。「🕘 変更履歴」で誰が触ったか確認できます。</td>
+        </tr>
+        <tr>
+          <td><b>ログインできるがデータが出ない</b></td>
+          <td>許可リストに未登録です。画面に出る内容をそのまま管理者に伝えてください。</td>
+        </tr>
+        <tr>
+          <td><b>パスワードを忘れた</b></td>
+          <td>ログイン画面の「パスワードを忘れた場合」から自分で再設定できます。それでも入れないときは管理者に「再設定」を依頼してください。</td>
+        </tr>
+        <tr>
+          <td><b>移動先が「空きなし」になる</b></td>
+          <td>その部屋・種別に空きがありません。別の種別や部屋を選ぶか、<b>＋</b> で枠を増やしてください。</td>
+        </tr>
+        <tr>
+          <td><b>「選択した移動先はすでに使用中です」</b></td>
+          <td>選んでいる間にほかの人がその枠を使いました。選び直してください。</td>
+        </tr>
+        <tr>
+          <td><b>枠を減らせない</b></td>
+          <td>減るのは末尾の枠からです。埋まっている場合は、先に患者さんを別の枠へ移動させてください。下限は1です。</td>
+        </tr>
+        <tr>
+          <td><b>画面がすぐ暗くなる</b></td>
+          <td>タブ行の <b>☀️ スリープ防止</b> をオンにしてください。ボタンが無い端末は、端末側の設定で対応してください。</td>
+        </tr>
+        <tr>
+          <td><b>締めたいのに警告が出る</b></td>
+          <td>入室中の枠が残っています。4部屋を確認し、先に退室処理を済ませてください。</td>
+        </tr>
+        <tr>
+          <td><b>不具合を報告したい</b></td>
+          <td>タブ行右端の <b>©</b> でバージョン番号を確認し、「どの画面で・何をしたら・どうなったか」を添えて連絡してください。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pfoot"><span>13. 困ったときは（Q&amp;A）</span><span class="pno">11</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     12ページ目 — 用語集・できないこと
+     ══════════════════════════════════════════════════════════ -->
+<section class="page">
+  <div class="phead"><span>救護所 ベッド・椅子コントロール　取扱説明書</span><span><b>14. 用語集・できないこと</b></span></div>
+  <div class="page-body">
+    <h2><span class="num">14</span>用語集・できないこと</h2>
+
+    <h3>14-1. 用語集</h3>
+    <table>
+      <thead><tr><th style="width:34mm">用語</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td><b>枠</b></td><td>1台のベッド、または1脚の椅子。画面の四角ひとつ。</td></tr>
+        <tr><td><b>枠ID</b></td><td>部屋の中で固定された番号。<span class="c-key">B3</span>＝ベッド3番、<span class="c-key">CI2</span>＝室内椅子2番、<span class="c-key">CO1</span>＝室外椅子1番。</td></tr>
+        <tr><td><b>患者ID</b></td><td>フェス全体の通し番号。<code>2026-1-001</code>＝開催年-何日目-連番。画面では <code>1-001</code> と表示。</td></tr>
+        <tr><td><b>状態<br>（トリアージ）</b></td><td>重症度。<span class="chip c-green">軽症</span> <span class="chip c-yellow">中等症</span> <span class="chip c-red">重症</span> の3つ。枠の色になります。</td></tr>
+        <tr><td><b>転帰</b></td><td>退室したときの結果。<b>経過観察／帰宅／救急搬送</b>。初期値は経過観察。</td></tr>
+        <tr><td><b>送迎待ち</b></td><td>処置は終わり、迎えの車を待っている状態。🚐 ボタンで全部屋分を一覧できます。</td></tr>
+        <tr><td><b>ゴミ箱</b></td><td>取り消しのきく削除。入れても消えず、一覧に戻せます。</td></tr>
+        <tr><td><b>日次の締め</b></td><td>その日の記録を保存済みへ移し、患者IDを1に戻して翌日へ進める作業（管理者のみ）。</td></tr>
+      </tbody>
+    </table>
+
+    <h3>14-2. できないこと・気をつけること</h3>
+    <ul>
+      <li><b>同じ枠を同時に編集すると、あとから保存したほうが残ります。</b>別々の枠を触っている限り競合しません。</li>
+      <li><b>オフライン中の操作は保存されません。</b>回線が戻るまでページを開いたままにしてください。閉じると失われます。</li>
+      <li><b>締めた記録は元に戻せません。</b>保存済みの画面は読み取り専用です。</li>
+      <li><b>編集画面から枠を「空き」に戻すことはできません。</b>退室か移動を使ってください。</li>
+      <li><b>確定した退室記録を直せるのは管理者だけです。</b>とくに転帰は、退室を押す前に確認してください。</li>
+      <li>変更履歴に件数の上限はありません。長く使い続けると増え続けます。</li>
+    </ul>
+
+    <h3>14-3. 当日の持ち物メモ</h3>
+    <div class="note" style="margin-bottom:3mm">
+      端末の<b>モバイルバッテリー</b>を用意してください。スリープ防止をオンにした端末は、電池の減りが目に見えて早くなります。
+      据え置き端末は電源につないだうえで、スリープ防止をオンにするのが理想です。
+    </div>
+
+    <table>
+      <thead><tr><th style="width:34mm">項目</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><b>アプリのURL</b></td><td>https://liptonist.github.io/monsterBash_bedControl/</td></tr>
+        <tr><td><b>ログイン</b></td><td>Google アカウント、または管理者から配られた ID とパスワード</td></tr>
+        <tr><td><b>部屋</b></td><td>本部・空海横・サーカス・茶堂</td></tr>
+        <tr><td><b>管理者連絡先</b></td><td style="color:#9a9a9a">（当日の担当者名・無線チャンネルなどを記入してください）</td></tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:10mm;padding-top:3mm;border-top:.5pt solid #d4d4d4;font-size:8.5pt;color:#666;display:flex;justify-content:space-between;align-items:flex-end">
+      <div>
+        <b style="color:#1a1a1a">救護所 ベッド・椅子コントロール 取扱説明書</b><br>
+        対応バージョン 0.11.1
+      </div>
+      <div style="text-align:right">© 2026 佐藤容平</div>
+    </div>
+  </div>
+  <div class="pfoot"><span>14. 用語集・できないこと</span><span class="pno">12</span></div>
+</section>
+
+</body>
+</html>
