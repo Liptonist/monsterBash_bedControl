@@ -97,9 +97,8 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .mb{padding:14px 16px;display:flex;flex-direction:column;gap:11px}
 .mf{padding:12px 16px;border-top:1px solid #e0e0e0;display:flex;gap:8px;justify-content:flex-end;align-items:center}
 .lbl{font-size:11px;color:#666;margin-bottom:4px;font-weight:500}
-.sopts{display:grid;grid-template-columns:repeat(2,1fr);gap:5px}
+.sopts{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
 .sopt{padding:8px 4px;border-radius:6px;border:1.5px solid transparent;cursor:pointer;font-size:11px;text-align:center;font-weight:500}
-.sopt.se{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
 .sopt.sg{background:#f0fdf4;border-color:#86efac;color:#166534}
 .sopt.sy{background:#fefce8;border-color:#fde68a;color:#92400e}
 .sopt.sr{background:#fee2e2;border-color:#fecaca;color:#991b1b}
@@ -218,7 +217,6 @@ button.tab-link{font-family:inherit;cursor:pointer}
       <div>
         <div class="lbl">状態（トリアージ）</div>
         <div class="sopts">
-          <div class="sopt se" data-s="empty" onclick="selS('empty')">空き</div>
           <div class="sopt sg" data-s="green" onclick="selS('green')">軽症</div>
           <div class="sopt sy" data-s="yellow" onclick="selS('yellow')">中等症</div>
           <div class="sopt sr" data-s="red" onclick="selS('red')">重症</div>
@@ -338,7 +336,7 @@ let rooms = ROOMS.map(() => ({
 let globalPatientId = 1;
 let cur = 0;
 let editCtx = null;
-let curS = 'empty';
+let curS = 'green';   // モーダルで選ばれているトリアージ。openM のたびに入れ直す
 
 function mkItem(localId) {
   return {localId, patientId:null, patientCode:null, status:'empty', name:'', sym:'', waiting:false, enteredAt:null, age:null, gender:''};
@@ -752,26 +750,17 @@ function openM(kind, idx) {
   document.getElementById('fwait').checked = !!b.waiting;
   document.getElementById('ftime').value = b.enteredAt ? tsToHHMM(b.enteredAt) : nowHHMM();
   document.getElementById('fout').value = nowHHMM();
-  // 転帰は退室のたびに選び直す。ほとんどは帰宅なので既定は帰宅にしておく
+  // 転帰は退室のたびに選び直す。既定は OUTCOMES の先頭（経過観察）にしておく
   document.getElementById('foutcome').innerHTML =
     OUTCOMES.map(o => `<option${o===OUTCOME_DEFAULT?' selected':''}>${o}</option>`).join('');
   document.getElementById('fmove-room').innerHTML =
     ROOMS.map((n,i) => `<option value="${i}"${i===cur?' selected':''}>${n}</option>`).join('');
   document.getElementById('fmove-kind').value = kind;
   updateMoveSlotOptions();
-  updateFieldVisibility();
   updSOpts();
   document.getElementById('ovl').classList.add('show');
 }
 window.openM = openM;
-
-function updateFieldVisibility() {
-  const isOccupied = curS !== 'empty';
-  document.getElementById('time-field').style.display = isOccupied ? 'block' : 'none';
-  document.getElementById('out-field').style.display = isOccupied ? 'block' : 'none';
-  document.getElementById('checkout-btn').style.display = isOccupied ? 'block' : 'none';
-  document.getElementById('move-field').style.display = isOccupied ? 'block' : 'none';
-}
 
 function updateMoveSlotOptions() {
   const ri = Number(document.getElementById('fmove-room').value);
@@ -799,8 +788,7 @@ window.closeM = closeM;
 
 function selS(s) {
   curS = s; updSOpts();
-  updateFieldVisibility();
-  if (s !== 'empty' && !document.getElementById('ftime').value)
+  if (!document.getElementById('ftime').value)
     document.getElementById('ftime').value = nowHHMM();
 }
 window.selS = selS;
@@ -839,15 +827,8 @@ function saveB() {
   const ageVal = document.getElementById('fage').value;
   b.age     = ageVal !== '' ? Number(ageVal) : null;
   b.gender  = document.getElementById('fgender').value;
-  if (curS==='empty') {
-    const wasPid = pidShort(b);
-    b.enteredAt = null; b.patientId = null; b.patientCode = null; b.waiting = false;
-    setSyncStatus('syncing');
-    pushItem(roomIdx, key, idx, b);
-    logChange('空きに変更', slotLabel(roomIdx, kind, b), wasPid);
-    closeM(); renderAll();
-    return;
-  }
+  // 保存で空きに戻すことはない（枠が空くのは退室・移動のときだけ）。
+  // 状態はトリアージの3つ（軽症・中等症・重症）から選ぶ。
   // すでに入室している人を編集した場合は、もとの入室時刻を基準に解釈する。
   // 日付が変わってから編集しても、入室日が今日に付け替わらないようにするため
   b.enteredAt = parseTimeToTs(document.getElementById('ftime').value, b.enteredAt);

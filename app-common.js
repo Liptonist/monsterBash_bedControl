@@ -58,10 +58,10 @@ export const pidShort = r => pidText(r).replace(/^\d{4}-/, '');
 // ─── 転帰（退室したときの結果） ──────────────────────
 // 退室記録の outcome に、この文字列のいずれかがそのまま入る。
 // 増やすときは database.rules.json の文字数上限（20）に収まるようにする。
-export const OUTCOMES = ['帰宅', '救急搬送', '経過観察'];
-export const OUTCOME_DEFAULT = '帰宅';
+export const OUTCOMES = ['経過観察', '帰宅', '救急搬送'];
+export const OUTCOME_DEFAULT = '経過観察';
 // 救急搬送だけは一覧で目立たせたいので区別できるようにしておく
-export const OUTCOME_CLASS = {'帰宅':'ok', '救急搬送':'amb', '経過観察':'obs'};
+export const OUTCOME_CLASS = {'経過観察':'obs', '帰宅':'ok', '救急搬送':'amb'};
 
 // ─── CSV書き出し ─────────────────────────────────────
 // 退室記録（kyuugo/discharged と保存済みの記録）を表計算ソフトで開ける形にする。
@@ -600,7 +600,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '0.11.0',
+  version:   '0.11.1',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -608,6 +608,10 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '0.11.1', date: '2026-08-08', items: [
+    '転帰の並びを「経過観察・帰宅・救急搬送」にして、初期値を経過観察に変更',
+    '編集画面の状態を軽症・中等症・重症の3つにして、1行に並べた（「空き」は選べなくなりました）',
+  ]},
   {version: '0.11.0', date: '2026-08-08', items: [
     '退室のときに転帰（帰宅・救急搬送・経過観察）を記録できるようにした',
     '退室済み一覧と保存済みの記録に「CSVで保存」を追加',
