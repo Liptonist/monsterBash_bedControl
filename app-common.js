@@ -55,6 +55,10 @@ export const pidText = r =>
 // データ側には年を含んだままの値を保存する。
 export const pidShort = r => pidText(r).replace(/^\d{4}-/, '');
 
+// ─── 部屋（4部屋固定） ───────────────────────────────
+// kyuugo/rooms の添字がこの並び順に対応する。表示順・並べ替えの順もこれに揃える。
+export const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
+
 // ─── 転帰（退室したときの結果） ──────────────────────
 // 退室記録の outcome に、この文字列のいずれかがそのまま入る。
 // 増やすときは database.rules.json の文字数上限（20）に収まるようにする。
@@ -112,6 +116,96 @@ export function downloadCSV(filename, csv) {
 
 // ファイル名に使えない文字を落とす
 export const safeFileName = s => String(s).replace(/[\\/:*?"<>|]/g, '_');
+
+// ─── 氏名の照合（検索・同名チェックで共通） ────────────
+// 入力する人によって「山田 太郎」「山田　太郎」「山田太郎」「ﾔﾏﾀﾞ ﾀﾛｳ」「やまだたろう」と
+// 表記が揺れるので、空白（半角・全角）を落とし、全角半角・大小文字・
+// ひらがなとカタカナを均してから比べる。漢字とかなの違いまでは吸収できない。
+export function normName(s) {
+  let t = String(s ?? '');
+  try { t = t.normalize('NFKC'); } catch (e) { /* 正規化できない環境ではそのまま */ }
+  return t.replace(/\s+/g, '').toLowerCase()
+          .replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+}
+
+// 氏名の部分一致。検索語側の空白も無視するので「山田太」でも「山田 太郎」が出る
+export function nameMatches(name, query) {
+  const q = normName(query);
+  return q === '' || normName(name).includes(q);
+}
+
+// 同一人物とみなすかどうか（同名チェック用）。空欄同士は同名扱いにしない
+export function sameName(a, b) {
+  const x = normName(a);
+  return x !== '' && x === normName(b);
+}
+
+// ─── 一覧の並べ替え（退室済み一覧・保存済みの記録で共通） ───
+const TRIAGE_ORDER = {'軽症': 1, '中等症': 2, '重症': 3};
+const KIND_ORDER   = {'ベッド': 1, '室内椅子': 2, '室外椅子': 3};
+
+// 席ID（B3・CI2 など）の数字部分。並べ替えでは B10 が B2 の後に来てほしい
+function slotNumOf(r) {
+  const raw = String(r.slotId ?? '').replace(/^\D+/, '');
+  const n = Number(raw);
+  return raw !== '' && Number.isFinite(n) ? n : null;
+}
+
+// 列ごとの比べる値。null と空文字は「未入力」とみなす
+export const SORT_ACCESSORS = {
+  pid:       r => (r.patientId != null ? Number(r.patientId) : null),
+  name:      r => r.name || '',
+  sym:       r => r.sym || '',
+  room:      r => { const i = ROOMS.indexOf(r.room); return i < 0 ? null : i; },
+  slot:      slotNumOf,
+  kind:      r => KIND_ORDER[r.kind] ?? null,
+  triage:    r => TRIAGE_ORDER[r.triage] ?? null,
+  outcome:   r => { const i = OUTCOMES.indexOf(r.outcome); return i < 0 ? null : i; },
+  enteredAt: r => r.enteredAt ?? null,
+  exitedAt:  r => r.exitedAt ?? null,
+  stayMins:  r => (r.stayMins != null ? Number(r.stayMins) : null),
+  age:       r => (r.age != null ? Number(r.age) : null),
+};
+
+// 見出しを最初に押したときの向き。時刻・滞在時間・重症度は
+// 「新しい順」「長い順」「重い順」から見たいので降順で始める
+const SORT_FIRST_DIR = {
+  triage: 'desc', enteredAt: 'desc', exitedAt: 'desc', stayMins: 'desc', age: 'desc',
+};
+
+// 並べ替え。未入力は向きに関わらず末尾へ送る。
+// 同じ値どうしは元の並び（退室が新しい順）が保たれる（Array#sort は安定）
+export function sortRecords(records, key, dir) {
+  const get = SORT_ACCESSORS[key];
+  if (!get) return records.slice();      // 既定＝読み込んだままの並び
+  const sign = dir === 'asc' ? 1 : -1;
+  const blank = v => v == null || v === '' || Number.isNaN(v);
+  return records.slice().sort((a, b) => {
+    const va = get(a), vb = get(b);
+    if (blank(va) && blank(vb)) return 0;
+    if (blank(va)) return 1;
+    if (blank(vb)) return -1;
+    if (typeof va === 'string' || typeof vb === 'string')
+      return String(va).localeCompare(String(vb), 'ja') * sign;
+    return (va - vb) * sign;
+  });
+}
+
+// 見出しを押すたびに 既定の向き → 逆向き → 解除（元の並び）と回す
+export function nextSort(sort, key) {
+  const first = SORT_FIRST_DIR[key] || 'asc';
+  if (!sort || sort.key !== key) return {key, dir: first};
+  if (sort.dir === first) return {key, dir: first === 'asc' ? 'desc' : 'asc'};
+  return {key: null, dir: null};
+}
+
+// 並べ替えできる列見出し。handler は window に公開した関数名を渡す
+export function sortTh(label, key, sort, handler) {
+  const on = sort && sort.key === key;
+  const mark = on ? (sort.dir === 'asc' ? '▲' : '▼') : '↕';
+  return `<th class="sortable${on ? ' sorted' : ''}" onclick="${handler}('${key}')"`
+       + ` title="押すと${label}で並べ替えます">${label}<span class="sort-ar">${mark}</span></th>`;
+}
 
 // ログイン中のユーザー情報。requireAuth が通ったあとに中身が入る
 // name は表示用に解決済みの名前（許可リスト → Googleプロフィール → 未設定）
@@ -711,7 +805,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '0.11.2',
+  version:   '0.12.0',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -719,6 +813,13 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '0.12.0', date: '2026-08-11', items: [
+    '退室済み一覧と保存済みの記録で、列の見出しを押すと並べ替えられるようにした'
+      + '（もう一度押すと逆順、3回目で元の並びに戻ります）',
+    '退室済み一覧と保存済みの記録に、氏名の部分一致で探せる検索を追加',
+    '患者名を入れたときに、本日すでに同名の利用歴があれば知らせるようにした'
+      + '（姓と名の間の空白、全角・半角、ひらがな・カタカナの違いは無視して探します）',
+  ]},
   {version: '0.11.2', date: '2026-08-11', items: [
     'アプリ内ブラウザやプライベートブラウズでGoogleログインが'
       + '「初期状態が欠落しているため…」で止まる場合に、原因と対処を画面に出すようにした',

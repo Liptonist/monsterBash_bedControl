@@ -24,11 +24,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .filter-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .filter-label{font-size:12px;color:#666}
 .filter-select{font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#1a1a1a}
+.filter-input{font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#1a1a1a;font-family:inherit;width:190px;max-width:45vw}
+.filter-input:focus{outline:none;border-color:#3b82f6}
+.filter-count{font-size:11.5px;color:#888;white-space:nowrap}
 .empty-msg{text-align:center;color:#aaa;padding:40px;font-size:13px}
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 table{width:100%;min-width:760px;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
 thead{background:#f0f4ff}
 th{font-size:11px;font-weight:600;color:#555;padding:9px 10px;text-align:left;border-bottom:1px solid #e0e0e0;white-space:nowrap}
+/* 並べ替えできる見出し。押せることが分かるように矢印を常に出す */
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{background:#e4ecff}
+th.sorted{color:#1e40af}
+.sort-ar{font-size:9px;margin-left:3px;color:#b8c0cc}
+th.sorted .sort-ar{color:#3b82f6}
 td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#fafafa}
@@ -140,6 +149,9 @@ tr:hover td{background:#fafafa}
     <select class="filter-select" id="filter-outcome" onchange="applyFilter()">
       <option value="">全転帰</option>
     </select>
+    <input class="filter-input" id="filter-name" type="search" placeholder="氏名で検索（部分一致）"
+           title="姓と名の間の空白や全角・半角の違いは無視して探します" oninput="applyFilter()">
+    <span class="filter-count" id="filter-count"></span>
     <button class="csv-btn" id="csv-btn" onclick="exportCSV()" title="絞り込んだ結果をCSVで保存します">⬇️ CSVで保存</button>
   </div>
   <div id="table-area"></div>
@@ -218,12 +230,11 @@ tr:hover td{background:#fafafa}
 import { ref, onValue, set, remove, update, get, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, requireAuth, logChange, trackWrite,
-         festival, subscribeFestival, pidShort,
+         festival, subscribeFestival, pidShort, ROOMS,
          OUTCOMES, OUTCOME_CLASS, CSV_HEADERS, csvRow, toCSV, downloadCSV,
-         safeFileName } from './app-common.js';
+         safeFileName, nameMatches, sortRecords, nextSort, sortTh } from './app-common.js';
 
 // ─── 定数（index.html と揃える） ─────────────────────
-const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
 const KIND_LABEL  = {bed:'ベッド', chairIn:'室内椅子', chairOut:'室外椅子'};
 const KIND_MAP    = {bed:'beds', chairIn:'chairsIn', chairOut:'chairsOut'};
@@ -303,15 +314,30 @@ function subscribeAll() {
 // 絞り込んだ結果はCSV書き出しでも使うので保持しておく
 let shownRecords = [];
 
+// 並べ替えの状態。key が null のときは既定（退室が新しい順）。
+// 一覧とゴミ箱は別々に持つ（片方を並べ替えても、もう片方は動かさない）
+let listSort  = {key: null, dir: null};
+let trashSort = {key: null, dir: null};
+
+function setListSort(key)  { listSort  = nextSort(listSort, key);  applyFilter(); }
+function setTrashSort(key) { trashSort = nextSort(trashSort, key); renderTrash(); }
+window.setListSort  = setListSort;
+window.setTrashSort = setTrashSort;
+
 function applyFilter() {
   const room = document.getElementById('filter-room').value;
   const kind = document.getElementById('filter-kind').value;
   const out  = document.getElementById('filter-outcome').value;
-  shownRecords = allRecords.filter(r =>
+  const name = document.getElementById('filter-name').value;
+  const hits = allRecords.filter(r =>
     (!room || r.room === room) &&
     (!kind || r.kind === kind) &&
-    (!out  || (r.outcome || '') === out)
+    (!out  || (r.outcome || '') === out) &&
+    nameMatches(r.name, name)
   );
+  shownRecords = sortRecords(hits, listSort.key, listSort.dir);
+  document.getElementById('filter-count').textContent =
+    hits.length === allRecords.length ? '' : `該当 ${hits.length}件 / 全 ${allRecords.length}件`;
   render(shownRecords);
 }
 window.applyFilter = applyFilter;
@@ -346,8 +372,8 @@ function render(records) {
 
   document.getElementById('table-area').innerHTML =
     records.length === 0
-      ? `<div class="empty-msg">退室済みの記録はまだありません</div>`
-      : tableHTML(records, 'trash');
+      ? `<div class="empty-msg">${allRecords.length ? '該当する記録はありません' : '退室済みの記録はまだありません'}</div>`
+      : tableHTML(records, 'trash', listSort, 'setListSort');
 }
 
 function renderTrash() {
@@ -355,7 +381,7 @@ function renderTrash() {
   document.getElementById('trash-area').innerHTML =
     trashRecords.length === 0
       ? `<div class="empty-msg">ゴミ箱は空です</div>`
-      : tableHTML(trashRecords, 'restore');
+      : tableHTML(sortRecords(trashRecords, trashSort.key, trashSort.dir), 'restore', trashSort, 'setTrashSort');
 }
 
 // 患者名や症状はスタッフが入力した文字列なので、そのままHTMLに入れない
@@ -406,24 +432,26 @@ function recordRowHTML(r, action) {
   </tr>`;
 }
 
-function tableHTML(records, action) {
+// 見出しを押すと並べ替える。sort は今の状態、handler は window に公開した関数名
+function tableHTML(records, action, sort, handler) {
   const rows = records.map(r => recordRowHTML(r, action)).join('');
+  const th = (label, key) => sortTh(label, key, sort, handler);
   return `
     <div class="table-scroll">
     <table>
       <thead>
         <tr>
-          <th>患者ID</th>
-          <th>患者名</th>
-          <th>症状</th>
-          <th>部屋</th>
-          <th>席ID</th>
-          <th>種別</th>
-          <th>重症度</th>
-          <th>転帰</th>
-          <th>入室</th>
-          <th>退室</th>
-          <th>滞在時間</th>
+          ${th('患者ID', 'pid')}
+          ${th('患者名', 'name')}
+          ${th('症状', 'sym')}
+          ${th('部屋', 'room')}
+          ${th('席ID', 'slot')}
+          ${th('種別', 'kind')}
+          ${th('重症度', 'triage')}
+          ${th('転帰', 'outcome')}
+          ${th('入室', 'enteredAt')}
+          ${th('退室', 'exitedAt')}
+          ${th('滞在時間', 'stayMins')}
           ${action ? '<th>操作</th>' : ''}
         </tr>
       </thead>

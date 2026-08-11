@@ -109,6 +109,13 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .id-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 /* 中身（時刻入力など）が横に広がって列からはみ出さないようにする */
 .id-fields>*{min-width:0}
+/* 本日すでに同じ名前の利用歴があるときの注意書き（患者名の下） */
+.dup-note{display:none;margin-top:6px;background:#fff8e1;border:1px solid #ffe0a3;border-radius:8px;padding:8px 10px;font-size:11.5px;line-height:1.7;color:#7a5b00}
+.dup-note.show{display:block}
+.dup-q{font-weight:600;display:block;margin-bottom:4px}
+.dup-hit{display:block;padding:2px 0;border-top:1px dashed #f0d9a0}
+.dup-hit:first-of-type{border-top:none}
+.dup-pid{display:inline-block;background:#fff;border:1px solid #e6cf95;border-radius:4px;padding:0 5px;margin-right:5px;font-size:10.5px}
 .symq{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .sqb{padding:4px 12px;border-radius:20px;border:1px solid #ccc;background:#fafafa;font-size:11px;cursor:pointer;color:#555}
 .sqb:hover{background:#eff6ff;color:#1e40af;border-color:#93c5fd}
@@ -238,7 +245,8 @@ button.tab-link{font-family:inherit;cursor:pointer}
       </div>
       <div>
         <div class="lbl">患者名</div>
-        <input class="finput" id="fname" placeholder="例：山田 太郎">
+        <input class="finput" id="fname" placeholder="例：山田 太郎" oninput="onNameInput()">
+        <div class="dup-note" id="dup-note"></div>
       </div>
       <div class="id-fields">
         <div>
@@ -318,13 +326,12 @@ button.tab-link{font-family:inherit;cursor:pointer}
 import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, requireAuth, logChange, trackWrite,
-         festival, subscribeFestival, formatPid, pidText, pidShort,
-         OUTCOMES, OUTCOME_DEFAULT, showAbout } from './app-common.js';
+         festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
+         OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName } from './app-common.js';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
 // ─── 定数 ───────────────────────────────────────────
-const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
 const SL = {empty:'空き', green:'軽症', yellow:'中等症', red:'重症'};
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
 const KIND_LABEL  = {bed:'ベッド', chairIn:'室内椅子', chairOut:'室外椅子'};
@@ -342,6 +349,7 @@ let rooms = ROOMS.map(() => ({
 let globalPatientId = 1;
 let cur = 0;
 let editCtx = null;
+let dischargedToday = [];   // 本日の退室記録（同名チェックに使う）
 let curS = 'green';   // モーダルで選ばれているトリアージ。openM のたびに入れ直す
 
 function mkItem(localId) {
@@ -383,6 +391,12 @@ function subscribeAll() {
     if (v != null) globalPatientId = v + 1;
     setSyncStatus('online');
   });
+  // 同名チェック用。kyuugo/discharged は日次の締めで空になるので、
+  // ここに入っている記録＝この開催日（本日）の退室分になる
+  onValue(ref(db, 'kyuugo/discharged'), snap => {
+    dischargedToday = Object.values(snap.val() || {});
+    if (editCtx) renderDupHint();
+  }, e => console.warn('discharged:', e));
 }
 
 function itemPayload(item) {
@@ -764,6 +778,7 @@ function openM(kind, idx) {
   document.getElementById('fmove-kind').value = kind;
   updateMoveSlotOptions();
   updSOpts();
+  renderDupHint();
   document.getElementById('ovl').classList.add('show');
 }
 window.openM = openM;
@@ -805,6 +820,58 @@ function updSOpts() {
 function setSym(s) { document.getElementById('fsym').value = s; }
 window.setSym = setSym;
 
+// ─── 同名の利用歴チェック ─────────────────────────────
+// 同じ人が日に何度も来ることがある一方、別人の同姓同名もある。
+// 名前を入れた時点で「本日すでに同名の利用歴がある」ことだけ知らせて、
+// 同一患者かどうかの判断はスタッフに任せる。
+// 姓と名の間の空白や全角・半角の違いは sameName 側で吸収する。
+const DUP_Q = '本日同名の利用歴があります。同一患者ですか？';
+
+// 本日の同名を探す。入室中の枠と、本日の退室記録（kyuugo/discharged）が対象。
+// skip には編集中の枠（自分自身は同名扱いしない）を渡す
+function sameNameToday(name, skip) {
+  const hits = [];
+  if (!String(name || '').trim()) return hits;
+  ROOMS.forEach((_, ri) => {
+    Object.entries(KIND_MAP).forEach(([kind, key]) => {
+      rooms[ri][key].forEach((b, idx) => {
+        if (!b || b.status === 'empty') return;
+        if (skip && skip.roomIdx === ri && skip.kind === kind && skip.idx === idx) return;
+        if (!sameName(b.name, name)) return;
+        hits.push({
+          pid:   pidShort(b),
+          state: `${ROOMS[ri]} ${KIND_PREFIX[kind]}${b.localId}・入室中`,
+          sub:   [ageGenderText(b), b.sym].filter(Boolean).join('・'),
+        });
+      });
+    });
+  });
+  dischargedToday.forEach(r => {
+    if (!sameName(r.name, name)) return;
+    hits.push({
+      pid:   pidShort(r),
+      state: [[r.room, r.slotId].filter(Boolean).join(' '),
+              `${tsToHHMM(r.exitedAt) || '時刻不明'} 退室`, r.outcome].filter(Boolean).join('・'),
+      sub:   [ageGenderText(r), r.sym].filter(Boolean).join('・'),
+    });
+  });
+  return hits;
+}
+
+// 患者名の下に出す案内。名前を打つたびに出し入れする
+function renderDupHint() {
+  const el = document.getElementById('dup-note');
+  if (!el) return;
+  const hits = editCtx ? sameNameToday(document.getElementById('fname').value, editCtx) : [];
+  el.classList.toggle('show', hits.length > 0);
+  el.innerHTML = hits.length === 0 ? '' :
+    `<span class="dup-q">⚠️ ${DUP_Q}</span>` + hits.map(h => `<span class="dup-hit">${
+      h.pid ? `<span class="dup-pid">${esc(h.pid)}</span>` : ''
+    }${esc(h.state)}${h.sub ? `（${esc(h.sub)}）` : ''}</span>`).join('');
+}
+function onNameInput() { renderDupHint(); }
+window.onNameInput = onNameInput;
+
 // ─── 保存 ─────────────────────────────────────────────
 // 変更履歴用の枠の表示名（例: 本部 ベッドB3）
 function slotLabel(roomIdx, kind, b) {
@@ -826,8 +893,19 @@ function saveB() {
   const b = rooms[roomIdx][key][idx];
   if (!b) return;
   const wasEmpty = b.status==='empty';
+  const name = document.getElementById('fname').value.trim();
+  // 新しく受け入れるときだけ念のため確認する。編集で開き直すたびには聞かない
+  if (wasEmpty) {
+    const hits = sameNameToday(name, editCtx);
+    if (hits.length && !confirm([
+      DUP_Q, '',
+      ...hits.map(h => '・' + [h.pid, h.state, h.sub && `（${h.sub}）`].filter(Boolean).join(' ')), '',
+      '同一患者ならキャンセルして、その記録を確認してください。',
+      '別の患者であれば、このまま新しい患者IDで登録します。',
+    ].join('\n'))) return;
+  }
   b.status  = curS;
-  b.name    = document.getElementById('fname').value.trim();
+  b.name    = name;
   b.sym     = document.getElementById('fsym').value.trim();
   b.waiting = document.getElementById('fwait').checked;
   const ageVal = document.getElementById('fage').value;
