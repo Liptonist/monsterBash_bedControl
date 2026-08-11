@@ -167,6 +167,7 @@ const AUTH_HTML = `
     <button class="auth-btn2" id="auth-pw-btn">ログイン</button>
     <button class="auth-sub-btn" id="auth-reset">パスワードを忘れた場合</button>
   </div>
+  <button class="auth-sub-btn" id="auth-copy" style="display:none">このページのURLをコピー</button>
   <button class="auth-sub-btn" id="auth-logout" style="display:none">別のアカウントでログインする</button>
 </div>`;
 
@@ -185,6 +186,7 @@ function mountAuthUi(title) {
   ovl.querySelector('#auth-h').textContent = title;
   ovl.querySelector('#auth-btn').addEventListener('click', doLogin);
   ovl.querySelector('#auth-logout').addEventListener('click', doLogout);
+  ovl.querySelector('#auth-copy').addEventListener('click', copyPageUrl);
   ovl.querySelector('#auth-pw-btn').addEventListener('click', doPasswordLogin);
   ovl.querySelector('#auth-reset').addEventListener('click', doPasswordReset);
   // パスワード欄でEnterを押したらログインする
@@ -204,11 +206,16 @@ function showAuth(mode, opts = {}) {
   const btn  = ovl.querySelector('#auth-btn');
   const out  = ovl.querySelector('#auth-logout');
   const pw   = ovl.querySelector('#auth-pw');
+  const cp   = ovl.querySelector('#auth-copy');
 
   err.style.display = note.style.display = okEl.style.display = 'none';
-  btn.style.display = out.style.display = pw.style.display = 'none';
+  btn.style.display = out.style.display = pw.style.display = cp.style.display = 'none';
   btn.disabled = false;
   ovl.querySelector('#auth-pw-btn').disabled = false;
+  cp.textContent = 'このページのURLをコピー';
+
+  // 別のブラウザで開き直してもらう案内のときだけ、URLのコピーを出す
+  if (opts.copy) cp.style.display = '';
 
   if (mode === 'working') {
     sub.textContent = opts.text || '確認中...';
@@ -263,6 +270,13 @@ function jaAuthMessage(c, e) {
     'auth/weak-password':         'パスワードは6文字以上にしてください。',
     'auth/operation-not-allowed': 'Firebaseコンソールで「メール/パスワード」を有効化してください。',
     'PERMISSION_DENIED':          'データベースの権限がありません（管理者以外は登録できません）。',
+    // Googleログインの経由ページが、途中経過（sessionStorage）を読み書きできなかった場合
+    'auth/missing-initial-state':   MSG_NO_STORAGE,
+    'auth/web-storage-unsupported': MSG_NO_STORAGE,
+    'auth/popup-blocked':           'ログイン画面（ポップアップ）がブロックされました。ブロックを解除するか、下のIDとパスワードでログインしてください。',
+    'auth/popup-closed-by-user':    'ログイン画面が閉じられました。もう一度お試しください。',
+    'auth/cancelled-popup-request': 'ログイン画面を開き直しました。もう一度お試しください。',
+    'auth/unauthorized-domain':     'このURLからのGoogleログインは許可されていません。管理者に連絡してください（Firebaseの承認済みドメインへの追加が必要です）。',
   };
   if (map[c]) return map[c];
   // Realtime Database 側の権限エラーはコード名が異なる
@@ -345,18 +359,90 @@ export const sendResetEmail = email => sendPasswordResetEmail(auth, email);
 
 export { authErrText };
 
+// ─── Googleログインができない環境の判定 ──────────────────
+// Googleログインは authDomain（monster-bash-2026-medical.firebaseapp.com）の
+// ページを必ず経由する。このアプリの配信元は GitHub Pages で経由先とドメインが
+// 違うため、「サイトを越えたデータ」を遮断するブラウザでは行き帰りの途中経過
+// （sessionStorage）が失われ、Google側の画面で
+// 「初期状態が欠落しているため、リクエストを処理できません」と出て止まる。
+// 該当しそうな環境では最初から案内を出し、IDとパスワードのログインに誘導する。
+
+// プライベートブラウズやCookie全面ブロックでは sessionStorage が使えない
+function storageBlocked() {
+  try {
+    sessionStorage.setItem('__mb_probe', '1');
+    sessionStorage.removeItem('__mb_probe');
+    return false;
+  } catch (e) {
+    return true;
+  }
+}
+
+// アプリ内ブラウザ（LINE・Instagram・Facebook・X など）。
+// ポップアップもリダイレクトも失敗しやすく、失敗すると戻ってこられない
+const IN_APP_BROWSER =
+  /(Line\/|FBAN|FBAV|FB_IAB|Instagram|Twitter|MicroMessenger|KAKAOTALK)/i
+    .test(navigator.userAgent || '');
+
+const MSG_NO_STORAGE =
+  'このブラウザではGoogleログインを完了できません（ログインの途中経過を保存できない設定になっています）。'
+  + 'プライベートブラウズをやめる、Cookieや「サイト越えトラッキングを防ぐ」のブロックを一時的に解除する、'
+  + 'または配布されたIDとパスワードでログインしてください。';
+
+const MSG_IN_APP =
+  'アプリ内ブラウザ（LINEやInstagramなど）ではGoogleログインを完了できません。'
+  + 'メニューから「Safariで開く」「ブラウザで開く」を選んで開き直すか、'
+  + '下のIDとパスワードでログインしてください。';
+
+const MSG_REDIRECT_FAILED =
+  'Googleログインが完了しませんでした。ブラウザがログインの途中経過を保存できないと、'
+  + '「初期状態が欠落しているため、リクエストを処理できません」と表示されて中断します。'
+  + 'SafariやChromeで開き直すか、配布されたIDとパスワードでログインしてください。';
+
+// リダイレクト方式に進んだ印。戻ってきてもログインできていなければ失敗と分かる
+const REDIRECT_FLAG = 'mb-auth-redirect';
+const setFlag = v => { try { v ? localStorage.setItem(REDIRECT_FLAG, '1')
+                               : localStorage.removeItem(REDIRECT_FLAG); } catch (e) {} };
+const hasFlag = () => { try { return localStorage.getItem(REDIRECT_FLAG) === '1'; }
+                        catch (e) { return false; } };
+
+async function copyPageUrl() {
+  const btn = ovl.querySelector('#auth-copy');
+  try {
+    await navigator.clipboard.writeText(location.href);
+    btn.textContent = 'コピーしました';
+  } catch (e) {
+    btn.textContent = location.href;   // コピーできない環境では手で選べるように出す
+  }
+}
+
 async function doLogin() {
   ovl.querySelector('#auth-btn').disabled = true;
+
+  // 押したあとGoogle側の画面で行き止まりになる環境は、先に案内して引き返す
+  if (IN_APP_BROWSER) { showAuth('login', {message: MSG_IN_APP, copy: true}); return; }
+  if (storageBlocked()) { showAuth('login', {message: MSG_NO_STORAGE, copy: true}); return; }
+
   const provider = new GoogleAuthProvider();
   try {
     await signInWithPopup(auth, provider);
+    setFlag(false);
   } catch (e) {
-    // ポップアップが塞がれる環境（アプリ内ブラウザ等）ではリダイレクト方式にする
-    if (e && /popup-blocked|popup-closed-by-user|operation-not-supported/.test(e.code || '')) {
-      try { await signInWithRedirect(auth, provider); return; }
-      catch (e2) { showAuth('error', {message: (e2.code || '') + ' ' + (e2.message || '')}); return; }
+    console.warn(e);
+    // ポップアップが塞がれる環境ではリダイレクト方式にする
+    if (/popup-blocked|popup-closed-by-user|operation-not-supported/.test(e.code || '')) {
+      try {
+        setFlag(true);
+        await signInWithRedirect(auth, provider);
+        return;
+      } catch (e2) {
+        setFlag(false);
+        console.warn(e2);
+        showAuth('login', {message: authErrText(e2), copy: true});
+        return;
+      }
     }
-    showAuth('error', {message: (e.code || '') + ' ' + (e.message || '')});
+    showAuth('login', {message: authErrText(e), copy: true});
   }
 }
 
@@ -394,7 +480,13 @@ export function requireAuth(title, onReady, adminOnly = false) {
   let started = false;
 
   onAuthStateChanged(auth, async user => {
-    if (!user) { showAuth('login'); return; }
+    if (!user) {
+      // リダイレクト方式から戻ってきて失敗していた場合は、その理由を出す
+      const message = await redirectFailureMessage();
+      showAuth('login', message ? {message, copy: true} : {});
+      return;
+    }
+    setFlag(false);
 
     showAuth('working', {text: '権限を確認しています...'});
 
@@ -458,8 +550,27 @@ export function requireAuth(title, onReady, adminOnly = false) {
   });
 }
 
-// リダイレクト方式で戻ってきた場合の結果を拾う
-getRedirectResult(auth).catch(e => console.warn(e));
+// リダイレクト方式で戻ってきた場合の結果を拾う。
+// 失敗していても以前は握りつぶしていたため、ログイン画面に戻るだけで
+// 何が起きたのか分からなかった。理由を覚えておき、ログイン画面に出す。
+let redirectErr = null;
+const redirectDone = getRedirectResult(auth)
+  .catch(e => { console.warn(e); redirectErr = e; });
+
+let redirectMsgShown = false;
+
+// リダイレクト方式が失敗していたときだけ、その説明文を返す（無ければ空文字）
+async function redirectFailureMessage() {
+  if (redirectMsgShown) return '';
+  redirectMsgShown = true;
+  await redirectDone;
+  const tried = hasFlag();
+  setFlag(false);
+  if (redirectErr) return authErrText(redirectErr);
+  // Google側の画面でエラーになると、結果を持たずに戻ってくる（または手で戻る）
+  if (tried) return MSG_REDIRECT_FAILED;
+  return '';
+}
 
 // ─── 保存状態の表示と、保存完了までの画面遷移の抑止 ──────
 // Firebaseへの書き込みが確定するまでメッセージを出し、その間は
@@ -600,7 +711,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '0.11.1',
+  version:   '0.11.2',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -608,6 +719,11 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '0.11.2', date: '2026-08-11', items: [
+    'アプリ内ブラウザやプライベートブラウズでGoogleログインが'
+      + '「初期状態が欠落しているため…」で止まる場合に、原因と対処を画面に出すようにした',
+    'ログイン画面に「このページのURLをコピー」を追加（別のブラウザで開き直すため）',
+  ]},
   {version: '0.11.1', date: '2026-08-08', items: [
     '転帰の並びを「経過観察・帰宅・救急搬送」にして、初期値を経過観察に変更',
     '編集画面の状態を軽症・中等症・重症の3つにして、1行に並べた（「空き」は選べなくなりました）',
