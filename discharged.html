@@ -38,7 +38,11 @@ th.sortable:hover{background:#e4ecff}
 th.sorted{color:#1e40af}
 .sort-ar{font-size:9px;margin-left:3px;color:#b8c0cc}
 th.sorted .sort-ar{color:#3b82f6}
-td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+/* 氏名や種別が「佐藤太／郎」「ベッ／ド」と折り返さないよう、既定は折り返さない。
+   はみ出す分は表ごと横スクロールする（.table-scroll） */
+td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle;white-space:nowrap}
+/* 症状だけは長くなるので折り返す */
+td.sym-cell{white-space:normal;min-width:110px;max-width:220px}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#fafafa}
 .pid{font-size:10px;padding:2px 6px;border-radius:4px;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-weight:500}
@@ -406,6 +410,11 @@ function outcomeHTML(r) {
   return cls ? `<span class="out out-${cls}">${esc(o)}</span>` : esc(o);
 }
 
+// 年齢。入っていない記録は「—」
+function ageText(r) {
+  return r.age != null && r.age !== '' ? esc(r.age) + '歳' : '—';
+}
+
 function recordRowHTML(r, action) {
   const stay = r.stayMins != null ? r.stayMins : '—';
   const stayClass = r.stayMins >= 30 ? 'stay long' : 'stay';
@@ -419,7 +428,8 @@ function recordRowHTML(r, action) {
   return `<tr>
     <td>${pidShort(r) ? `<span class="pid">${esc(pidShort(r))}</span>` : '—'}</td>
     <td>${esc(r.name || '—')}</td>
-    <td>${esc(r.sym || '—')}</td>
+    <td>${ageText(r)}</td>
+    <td class="sym-cell">${esc(r.sym || '—')}</td>
     <td><span class="room-badge">${esc(r.room||'—')}</span></td>
     <td><span class="slot-badge">${esc(r.slotId||'—')}</span></td>
     <td>${esc(r.kind||'—')}</td>
@@ -443,6 +453,7 @@ function tableHTML(records, action, sort, handler) {
         <tr>
           ${th('患者ID', 'pid')}
           ${th('患者名', 'name')}
+          ${th('年齢', 'age')}
           ${th('症状', 'sym')}
           ${th('部屋', 'room')}
           ${th('席ID', 'slot')}

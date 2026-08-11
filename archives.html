@@ -39,7 +39,11 @@ th.sortable:hover{background:#e4ecff}
 th.sorted{color:#1e40af}
 .sort-ar{font-size:9px;margin-left:3px;color:#b8c0cc}
 th.sorted .sort-ar{color:#3b82f6}
-td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+/* 氏名や種別が「佐藤太／郎」「ベッ／ド」と折り返さないよう、既定は折り返さない。
+   はみ出す分は表ごと横スクロールする（.table-scroll） */
+td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle;white-space:nowrap}
+/* 症状だけは長くなるので折り返す */
+td.sym-cell{white-space:normal;min-width:110px;max-width:220px}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#fafafa}
 .pid{font-size:10px;padding:2px 6px;border-radius:4px;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-weight:500}
@@ -119,8 +123,8 @@ function tableHTML(records, sort, handler) {
   const rows = records.map(r => `<tr>
     <td>${pidShort(r) ? `<span class="pid">${esc(pidShort(r))}</span>` : '—'}</td>
     <td>${esc(r.name || '—')}</td>
-    <td>${r.age != null ? esc(r.age) : '—'}${r.gender ? '・' + esc(r.gender) : ''}</td>
-    <td>${esc(r.sym || '—')}</td>
+    <td>${[r.age != null && r.age !== '' ? esc(r.age) + '歳' : '', esc(r.gender || '')].filter(Boolean).join('・') || '—'}</td>
+    <td class="sym-cell">${esc(r.sym || '—')}</td>
     <td><span class="room-badge">${esc(r.room || '—')}</span></td>
     <td><span class="slot-badge">${esc(r.kind || '')}${esc(r.slotId || '')}</span></td>
     <td>${esc(r.triage || '—')}</td>
