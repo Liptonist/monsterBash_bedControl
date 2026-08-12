@@ -112,6 +112,10 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .id-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 /* 中身（時刻入力など）が横に広がって列からはみ出さないようにする */
 .id-fields>*{min-width:0}
+/* 使えない文字（漢字）が入っているときの警告（患者名の下） */
+.finput.bad{border-color:#f5c6c2;background:#fff7f6}
+.name-err{display:none;margin-top:6px;background:#fdecea;border:1px solid #f5c6c2;border-radius:8px;padding:8px 10px;font-size:11.5px;line-height:1.7;color:#b3261e}
+.name-err.show{display:block}
 /* 本日すでに同じ名前の利用歴があるときの注意書き（患者名の下） */
 .dup-note{display:none;margin-top:6px;background:#fff8e1;border:1px solid #ffe0a3;border-radius:8px;padding:8px 10px;font-size:11.5px;line-height:1.7;color:#7a5b00}
 .dup-note.show{display:block}
@@ -249,7 +253,8 @@ button.tab-link{font-family:inherit;cursor:pointer}
       <div>
         <div class="lbl">患者名</div>
         <input class="finput" id="fname" placeholder="例：ヤマダ タロウ" oninput="onNameInput()" onchange="onNameChange()">
-        <div class="id-desc">ひらがなはカタカナに、姓名の間は半角スペースにそろえます（漢字・アルファベットはそのまま）</div>
+        <div class="name-err" id="name-err"></div>
+        <div class="id-desc">カタカナで入力してください。ひらがなはカタカナに、姓名の間は半角スペースにそろえます（漢字は使えません／アルファベットはそのまま）</div>
         <div class="dup-note" id="dup-note"></div>
       </div>
       <div class="id-fields">
@@ -331,7 +336,7 @@ import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
-         OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName } from './app-common.js';
+         OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName, hasKanji } from './app-common.js';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
@@ -806,6 +811,7 @@ function openM(kind, idx) {
   document.getElementById('fmove-kind').value = kind;
   updateMoveSlotOptions();
   updSOpts();
+  renderNameErr();
   renderDupHint();
   document.getElementById('ovl').classList.add('show');
 }
@@ -897,8 +903,16 @@ function renderDupHint() {
       h.pid ? `<span class="dup-pid">${esc(h.pid)}</span>` : ''
     }${esc(h.state)}${h.sub ? `（${esc(h.sub)}）` : ''}</span>`).join('');
 }
-function onNameInput() { renderDupHint(); }
+function onNameInput() { renderNameErr(); renderDupHint(); }
 window.onNameInput = onNameInput;
+
+// ─── 患者名の補正と、漢字の入力を止める ────────────────
+// 漢字は読みが分からずカタカナにそろえられないため、新規登録・編集の保存では
+// 受け付けない。打った文字を黙って消すと氏名が欠けたまま登録されかねないので、
+// 文字はそのまま残して警告を出し、保存だけを止める。
+// 退室と移動は止めない（この変更より前に漢字で登録された患者を、
+// 打ち直しが済むまで退室させられなくなるのを避けるため）。
+const KANJI_MSG = '漢字は使えません。カタカナで入力してください（例：ヤマダ タロウ）。';
 
 // 患者名の入力欄を読む。読むついでに表記を補正して欄にも書き戻す。
 // 入力中（oninput）に直すと日本語入力の変換を邪魔するので、
@@ -909,7 +923,19 @@ function nameField() {
   if (el.value !== v) el.value = v;
   return v;
 }
-function onNameChange() { nameField(); renderDupHint(); }
+
+// 漢字が入っていれば警告を出す。入っていれば true（＝保存できない）
+function renderNameErr() {
+  const inp = document.getElementById('fname');
+  const el  = document.getElementById('name-err');
+  const bad = hasKanji(inp.value);
+  inp.classList.toggle('bad', bad);
+  el.classList.toggle('show', bad);
+  el.textContent = bad ? KANJI_MSG : '';
+  return bad;
+}
+
+function onNameChange() { nameField(); renderNameErr(); renderDupHint(); }
 window.onNameChange = onNameChange;
 
 // ─── 保存 ─────────────────────────────────────────────
@@ -934,6 +960,12 @@ function saveB() {
   if (!b) return;
   const wasEmpty = b.status==='empty';
   const name = nameField();
+  // 漢字は保存させない。欄を赤くして案内も出したうえで、押した操作は取りやめる
+  if (renderNameErr()) {
+    alert(KANJI_MSG);
+    document.getElementById('fname').focus();
+    return;
+  }
   // 新しく受け入れるときだけ念のため確認する。編集で開き直すたびには聞かない
   if (wasEmpty) {
     const hits = sameNameToday(name, editCtx);
