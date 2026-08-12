@@ -248,7 +248,8 @@ button.tab-link{font-family:inherit;cursor:pointer}
       </div>
       <div>
         <div class="lbl">患者名</div>
-        <input class="finput" id="fname" placeholder="例：山田 太郎" oninput="onNameInput()">
+        <input class="finput" id="fname" placeholder="例：やまだ たろう" oninput="onNameInput()" onchange="onNameChange()">
+        <div class="id-desc">カタカナはひらがなに、姓名の間は半角スペースにそろえます（漢字・アルファベットはそのまま）</div>
         <div class="dup-note" id="dup-note"></div>
       </div>
       <div class="id-fields">
@@ -330,7 +331,7 @@ import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
-         OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName } from './app-common.js';
+         OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName } from './app-common.js';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
@@ -899,6 +900,18 @@ function renderDupHint() {
 function onNameInput() { renderDupHint(); }
 window.onNameInput = onNameInput;
 
+// 患者名の入力欄を読む。読むついでに表記を補正して欄にも書き戻す。
+// 入力中（oninput）に直すと日本語入力の変換を邪魔するので、
+// 欄から離れたとき（onchange）と、保存・退室・移動で読むときだけ直す。
+function nameField() {
+  const el = document.getElementById('fname');
+  const v = fixName(el.value);
+  if (el.value !== v) el.value = v;
+  return v;
+}
+function onNameChange() { nameField(); renderDupHint(); }
+window.onNameChange = onNameChange;
+
 // ─── 保存 ─────────────────────────────────────────────
 // 変更履歴用の枠の表示名（例: 本部 ベッドB3）
 function slotLabel(roomIdx, kind, b) {
@@ -920,7 +933,7 @@ function saveB() {
   const b = rooms[roomIdx][key][idx];
   if (!b) return;
   const wasEmpty = b.status==='empty';
-  const name = document.getElementById('fname').value.trim();
+  const name = nameField();
   // 新しく受け入れるときだけ念のため確認する。編集で開き直すたびには聞かない
   if (wasEmpty) {
     const hits = sameNameToday(name, editCtx);
@@ -993,7 +1006,7 @@ function checkoutB() {
   const record = {
     patientId:  b.patientId ?? null,
     patientCode: b.patientCode ?? null,
-    name:       document.getElementById('fname').value.trim() || b.name,
+    name:       nameField() || b.name,
     age:        ageVal !== '' ? Number(ageVal) : (b.age ?? null),
     gender:     document.getElementById('fgender').value || b.gender || null,
     sym:        document.getElementById('fsym').value.trim()  || b.sym,
@@ -1048,12 +1061,12 @@ function moveB() {
   }
 
   const destPrefix = KIND_PREFIX[destKind];
-  const nameLabel = document.getElementById('fname').value.trim() || b.name || '氏名未入力';
+  const nameLabel = nameField() || b.name || '氏名未入力';
   if (!confirm(`${nameLabel} さんを ${ROOMS[destRoom]}-${destPrefix}${dest.localId} へ移動しますか？`)) return;
 
   const ageVal = document.getElementById('fage').value;
   dest.status   = curS;
-  dest.name     = document.getElementById('fname').value.trim();
+  dest.name     = nameField();
   dest.sym      = document.getElementById('fsym').value.trim();
   dest.waiting  = document.getElementById('fwait').checked;
   dest.age      = ageVal !== '' ? Number(ageVal) : null;

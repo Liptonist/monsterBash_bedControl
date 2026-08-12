@@ -128,6 +128,23 @@ export function normName(s) {
           .replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
 }
 
+// ─── 氏名の自動補正（入力欄で使う） ──────────────────────
+// 記録の表記をそろえるため、入力された氏名を次の形に寄せる。
+//   ・姓と名の間は半角スペース1つ（全角空白・連続した空白・前後の空白も整える）
+//   ・半角カタカナや全角英数字は通常の文字にそろえる（NFKC）
+//   ・カタカナはひらがなにする（ﾔﾏﾀﾞ ﾀﾛｳ → やまだ たろう）
+//   ・アルファベットはそのまま（Yamada Taro → Yamada Taro）
+// 漢字は読みが分からないので変換できない（山田 太郎 は 山田 太郎 のまま残る）。
+// ブラウザだけで漢字を読みに直す方法はなく、辞書を積む必要があるため。
+export function fixName(s) {
+  let t = String(s ?? '');
+  try { t = t.normalize('NFKC'); } catch (e) { /* 正規化できない環境ではそのまま */ }
+  // 全角空白・タブ・連続した空白をまとめて半角スペース1つにする
+  t = t.replace(/\s+/g, ' ').trim();
+  // カタカナ → ひらがな（ァ-ヶ と 繰り返し記号ヽヾ。長音符「ー」は共通なのでそのまま）
+  return t.replace(/[ァ-ヶヽヾ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
+
 // 氏名の部分一致。検索語側の空白も無視するので「山田太」でも「山田 太郎」が出る
 export function nameMatches(name, query) {
   const q = normName(query);
@@ -805,7 +822,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '0.12.1',
+  version:   '0.12.2',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -813,6 +830,13 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '0.12.2', date: '2026-08-12', items: [
+    '患者名の表記を自動でそろえるようにした。姓と名の間は半角スペース1つ、'
+      + 'カタカナ（半角カタカナも）はひらがなに直します'
+      + '（例：ﾔﾏﾀﾞ　ﾀﾛｳ → やまだ たろう）',
+    'アルファベットと漢字はそのままです。漢字の読みはブラウザでは分からないため'
+      + 'ひらがなにできません。かなでそろえたい場合はかなで入力してください',
+  ]},
   {version: '0.12.1', date: '2026-08-11', items: [
     '退室済み一覧と保存済みの記録で、氏名や種別が「佐藤太／郎」のように'
       + '途中で折り返さないようにした（症状だけは長くなるので折り返します）',
