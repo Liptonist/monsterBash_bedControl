@@ -236,7 +236,7 @@ import { ref, onValue, set, remove, update, get, runTransaction }
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, pidShort, ROOMS,
          OUTCOMES, OUTCOME_CLASS, CSV_HEADERS, csvRow, toCSV, downloadCSV,
-         safeFileName, nameMatches, sortRecords, nextSort, sortTh } from './app-common.js';
+         safeFileName, nameMatches, sortRecords, nextSort, sortTh } from './app-common.js?v=0.13.0';
 
 // ─── 定数（index.html と揃える） ─────────────────────
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};

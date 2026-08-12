@@ -28,6 +28,12 @@
         "$other": { ".validate": false }
       },
 
+      "appVersion": {
+        ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
+        ".validate": "newData.isString() && newData.val().length <= 20 && newData.val().matches(/^[0-9]+[.][0-9]+[.][0-9]+$/)"
+      },
+
       "archives": {
         ".read":  "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",
         ".write": "auth != null && auth.token.email != null && root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('admin').val() === true && (auth.token.firebase.sign_in_provider === 'google.com' || root.child('kyuugo/allowedUsers').child(auth.token.email.toLowerCase().replace('.', ',')).child('authType').val() === 'password')",

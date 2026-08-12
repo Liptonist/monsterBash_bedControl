@@ -43,6 +43,18 @@ Room/kind/status labels and prefixes (`ROOMS`, `KIND_PREFIX`, `KIND_LABEL`, `SL`
 
 Shared list behaviour also lives in `app-common.js`: `fixName` is the write-side counterpart — it rewrites what staff typed into the house style (NFKC, single half-width space between 姓 and 名, hiragana→katakana — katakana is the house form, matching the direction `normName` folds; romaji is left alone; kanji can't be folded at all since a browser can't read it without a dictionary, so `hasKanji` rejects it instead — `saveB` blocks on it with an inline warning under `#fname`, while `checkoutB`/`moveB` deliberately don't, so pre-existing kanji records stay dischargeable) and is applied via `nameField()` in `index.html` on `change` and at every point that reads `#fname` (save/checkout/move), never on `input` (it would fight the IME). `normName`/`nameMatches`/`sameName` are the read side and fold the ways staff write the same name (spaces between 姓 and 名, full/half width, hiragana vs katakana) so name search and the same-day duplicate check agree, and `sortRecords`/`nextSort`/`sortTh` drive the sortable table headers on `discharged.html` and `archives.html`. Blank values always sort last, and ties keep the incoming order (discharge-newest-first).
 
+## Releasing
+
+`APP_INFO.version` in `app-common.js` is the release number, and three things must move together, or the deploy breaks in ways that only show up for the first ten minutes:
+
+1. bump `APP_INFO.version` and add a `CHANGELOG` entry;
+2. update the `?v=` query on every page's `import … from './app-common.js?v=X.Y.Z'` (all five HTML files, keep them identical);
+3. push to `main` — GitHub Pages serves HTML with `Cache-Control: max-age=600`, and `index.html` and `app-common.js` expire independently.
+
+Step 2 is what makes step 3 safe. Without it, a browser can pair *new* HTML with a *cached old* `app-common.js`; if the new page imports an export the old file doesn't have, module resolution fails and the entire inline script never runs — the page renders but nothing works. The `?v=` query means new HTML always requests a URL no cache has seen.
+
+`watchAppVersion()` (called from `requireAuth`, so every page gets it) subscribes to `kyuugo/appVersion` and shows a top bar when the DB carries a higher version than the loaded one. Nobody publishes that value by hand: whichever client loads a newer version writes it (`newerThan` compares numerically, so an old client never overwrites a newer value). It auto-reloads only when the page is idle — `busyNow()` refuses while writes are pending, an overlay is open, a field is focused, or the user touched the page in the last minute — and at most once per target version (`sessionStorage`), since a still-cached HTML would otherwise reload in a loop.
+
 ## Security rules
 
 `database.rules.json` is the real access-control boundary — the in-page login flow (`requireAuth()` in `app-common.js`) is only there to give people a decent error message, since anyone can talk to the database directly with the public `apiKey`. Any change to what the app reads or writes has to be mirrored there, including new fields: the rules whitelist known children and reject unknown ones.

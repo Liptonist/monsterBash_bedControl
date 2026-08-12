@@ -5,7 +5,7 @@
 //   true                                  … 一般ユーザー（旧形式・互換のため残す）
 //   { name: "山田太郎", admin: true }      … 表示名つき。admin:true は管理者
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, get, onValue }
+import { getDatabase, ref, push, get, set, onValue }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
          getRedirectResult, onAuthStateChanged, signOut,
@@ -664,6 +664,7 @@ export function requireAuth(title, onReady, adminOnly = false) {
 
     if (started) return;   // 再認証時に二重で起動しない
     started = true;
+    watchAppVersion();     // 全ページ共通。新しい版が出たら上部でお知らせする
     onReady(me);
   });
 }
@@ -829,7 +830,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '0.12.2',
+  version:   '0.13.0',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -837,6 +838,14 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '0.13.0', date: '2026-08-12', items: [
+    'アプリを更新したときに、開いたままの画面に「新しい版があります」と'
+      + '上部でお知らせするようにした（［再読み込み］を押すと新しくなります）',
+    '操作していない端末は、お知らせから1分ほどで自動的に読み込み直します。'
+      + '入力中・未送信の保存がある・画面を開いている間は自動では行いません',
+    '更新直後にページと共通プログラムの版がずれて、画面が真っ白のまま'
+      + '動かなくなることがあったのを修正',
+  ]},
   {version: '0.12.2', date: '2026-08-12', items: [
     '患者名の表記を自動でそろえるようにした。カタカナ表記が基本になり、'
       + '姓と名の間は半角スペース1つ、ひらがな（と半角カタカナ）はカタカナに直します'
@@ -999,6 +1008,131 @@ function hideAbout() { aboutOvl.classList.remove('show'); }
 export function showAbout() {
   if (!aboutOvl) buildAbout();
   aboutOvl.classList.add('show');
+}
+
+// ─── 新しい版のお知らせ ─────────────────────────────────
+// 会場では端末を開きっぱなしにするため（スリープ防止もある）、更新しても
+// 古い画面がその日ずっと使われ続けてしまう。読み込んだ版と kyuugo/appVersion を
+// 突き合わせ、違っていたら上部に知らせて、再読み込みしてもらう。
+//
+// appVersion は誰かが手で設定しなくてよい。新しい版を最初に開いた人の画面が
+// 自分の版を書き込み、他の端末はその変化を受け取る（古い版は書き込まない）。
+//
+// 自動の再読み込みは「使っていない端末」に限る。入力中や未送信の書き込みが
+// あるときに飛ぶと、打ちかけの患者名や操作が失われるため。
+// また同じ版に対して自動で再読み込みするのは1回だけにする。HTMLのキャッシュが
+// まだ残っていると読み込み直しても古いままで、繰り返すと再読み込みが止まらなくなる。
+
+// バーは画面上部に固定する。各ページの見出し（.hdr）は position:sticky で
+// top:0 に貼り付くので、バーの高さぶん下にずらして重ならないようにする。
+const VER_CSS = `
+.ver-bar{position:fixed;left:0;right:0;top:0;z-index:140;display:none;
+  align-items:center;gap:10px;padding:9px 12px;
+  background:#1e40af;color:#fff;font-size:12.5px;line-height:1.6;
+  box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.ver-bar.show{display:flex}
+body.ver-shift{padding-top:var(--ver-bar-h,44px)}
+body.ver-shift .hdr{top:var(--ver-bar-h,44px)}
+.ver-bar .txt{flex:1;min-width:0}
+.ver-bar .btn{background:#fff;border:none;border-radius:6px;color:#1e40af;
+  font-size:12px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ver-bar .x{background:none;border:none;color:#c7d2fe;font-size:16px;line-height:1;
+  padding:2px 4px;cursor:pointer;flex-shrink:0}
+`;
+
+const AUTO_RELOAD_MS = 60000;   // お知らせを出してから自動で読み込み直すまでの猶予
+const IDLE_MS        = 60000;   // 直前の操作からこれだけ空いていれば「使っていない」
+const RELOADED_KEY   = 'mb-reloaded-for';
+
+let verBar = null, verTimer = null, verTarget = '', verSeenAt = 0;
+let lastAct = Date.now();
+['pointerdown', 'keydown'].forEach(ev =>
+  document.addEventListener(ev, () => { lastAct = Date.now(); }, {passive: true, capture: true}));
+
+// 版の大小。'0.13.0' > '0.12.9' を数値として比べる（文字列比較では逆になる）
+function newerThan(a, b) {
+  const x = String(a || '').split('.').map(n => Number(n) || 0);
+  const y = String(b || '').split('.').map(n => Number(n) || 0);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] || 0) - (y[i] || 0);
+    if (d !== 0) return d > 0;
+  }
+  return false;
+}
+
+// 自動で読み込み直してよいか。ひとつでも当てはまれば見送る
+function busyNow() {
+  if (pending > 0) return true;                                     // 未送信の書き込みがある
+  if (document.querySelector('.ovl.show, .pw-ovl.show, .about-ovl.show')) return true;  // 何か開いている
+  const el = document.activeElement;
+  if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return true;   // 入力中
+  return Date.now() - lastAct < IDLE_MS;                            // 直前まで操作していた
+}
+
+function doReload() {
+  try { sessionStorage.setItem(RELOADED_KEY, verTarget); } catch (e) {}
+  clearInterval(verTimer);
+  window.removeEventListener('beforeunload', warnUnload);   // 自分で再読み込みするので警告は出さない
+  location.reload();
+}
+
+function buildVerBar() {
+  const st = document.createElement('style');
+  st.textContent = VER_CSS;
+  document.head.appendChild(st);
+
+  verBar = document.createElement('div');
+  verBar.className = 'ver-bar';
+  verBar.innerHTML = '<span class="txt"></span>'
+    + '<button class="btn" type="button">再読み込み</button>'
+    + '<button class="x" type="button" aria-label="閉じる">✕</button>';
+  verBar.querySelector('.btn').addEventListener('click', doReload);
+  verBar.querySelector('.x').addEventListener('click', () => {
+    verBar.classList.remove('show');
+    document.body.classList.remove('ver-shift');
+    clearInterval(verTimer);      // 閉じたら自動の読み込み直しもやめる
+    verTimer = null;
+  });
+  document.body.appendChild(verBar);
+}
+
+function showVerBar(v) {
+  if (verTarget === v) return;    // 同じ版のお知らせは出し直さない
+  verTarget = v;
+  verSeenAt = Date.now();
+  if (!verBar) buildVerBar();
+  verBar.querySelector('.txt').textContent =
+    `新しい版があります（v${v}）。手が空いたら再読み込みしてください。`;
+  verBar.classList.add('show');
+  // 実際の高さぶんだけ本文と見出しを下げる（文言が折り返して2行になることもある）
+  document.documentElement.style.setProperty('--ver-bar-h', verBar.offsetHeight + 'px');
+  document.body.classList.add('ver-shift');
+
+  // すでにこの版で読み込み直していれば、あとは手で押してもらう
+  let done = false;
+  try { done = sessionStorage.getItem(RELOADED_KEY) === v; } catch (e) {}
+  clearInterval(verTimer);
+  verTimer = done ? null : setInterval(() => {
+    if (Date.now() - verSeenAt < AUTO_RELOAD_MS) return;
+    if (busyNow()) return;
+    doReload();
+  }, 15000);
+}
+
+/**
+ * kyuugo/appVersion を見張って、新しい版が出ていたらお知らせを出す。
+ * ログインが通ってから呼ぶ（読み書きに許可リストの登録が要るため）。
+ */
+export function watchAppVersion() {
+  onValue(ref(db, 'kyuugo/appVersion'), snap => {
+    const dbv = String(snap.val() ?? '');
+    // 未設定、または自分の方が新しい（＝更新後この端末が最初に開いた）なら書き込む
+    if (!dbv || newerThan(APP_INFO.version, dbv)) {
+      set(ref(db, 'kyuugo/appVersion'), APP_INFO.version).catch(e => console.warn('appVersion:', e));
+      return;
+    }
+    if (newerThan(dbv, APP_INFO.version)) showVerBar(dbv);
+  }, e => console.warn('appVersion:', e));
 }
 
 /**

@@ -85,6 +85,7 @@ async function seed() {
       'pw@example,com':    { name: 'ID運用', authType: 'password' },
     },
     festival: { year: 2026, day: 1 },
+    appVersion: '0.13.0',
     globalPatientId: 5,
     rooms: [0, 1, 2, 3].reduce((r, i) => (r[i] = {
       beds: Array.from({ length: 10 }, (_, n) => empty(n + 1)),
@@ -193,6 +194,15 @@ await t('他人になりすました履歴は書けない',         'deny',  'PO
 await t('他人のuidを名乗る履歴は書けない',          'deny',  'POST', 'kyuugo/auditLog', STAFF, log({ uid: 'uid-admin@example.com' }));
 await t('必須項目を欠く履歴は書けない',             'deny',  'POST', 'kyuugo/auditLog', STAFF, { at: 1, email: 'staff@example.com' });
 await t('未知の項目を持つ履歴は書けない',           'deny',  'POST', 'kyuugo/auditLog', STAFF, log({ payload: 'x' }));
+
+console.log('\n── アプリの版（新しい版のお知らせ） ──');
+await t('スタッフは版を読める',                     'allow', 'GET', 'kyuugo/appVersion', STAFF);
+await t('スタッフは版を書ける（自動で配信する）',    'allow', 'PUT', 'kyuugo/appVersion', STAFF, '0.13.1');
+await t('未登録ユーザーは版を読めない',             'deny',  'GET', 'kyuugo/appVersion', OUT);
+await t('未登録ユーザーは版を書けない',             'deny',  'PUT', 'kyuugo/appVersion', OUT, '9.9.9');
+await t('版の形式が違うと書けない',                 'deny',  'PUT', 'kyuugo/appVersion', STAFF, 'v0.13.1');
+await t('版が数値だと書けない',                     'deny',  'PUT', 'kyuugo/appVersion', STAFF, 13);
+await t('版に余計な文字を混ぜられない',             'deny',  'PUT', 'kyuugo/appVersion', STAFF, '0.13.1<script>');
 
 console.log('\n── 開催情報・保存済み記録 ──');
 await t('スタッフは開催情報を読める',               'allow', 'GET', 'kyuugo/festival', STAFF);
