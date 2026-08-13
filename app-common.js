@@ -830,7 +830,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '0.13.0',
+  version:   '0.13.1',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -838,6 +838,13 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '0.13.1', date: '2026-08-13', items: [
+    'メイン画面の検索で、氏名をひらがなで打っても見つかるようにした'
+      + '（「やまだ」で「ヤマダ タロウ」が出ます）。'
+      + '症状は打った文字のまま探すので、これまでどおり漢字でもかなでも探せます',
+    '退室済み一覧の氏名検索を、患者名の入力欄と同じ扱いにした。'
+      + 'ひらがなはカタカナにそろえ、漢字では探せません',
+  ]},
   {version: '0.13.0', date: '2026-08-12', items: [
     'アプリを更新したときに、開いたままの画面に「新しい版があります」と'
       + '上部でお知らせするようにした（［再読み込み］を押すと新しくなります）',

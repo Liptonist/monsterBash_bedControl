@@ -204,7 +204,8 @@ button.tab-link{font-family:inherit;cursor:pointer}
 
 <div class="searchbar">
   <span class="qicon">🔍</span>
-  <input class="qinput" id="q" placeholder="患者ID・氏名・症状で全部屋から探す" oninput="onSearch()" autocomplete="off">
+  <input class="qinput" id="q" placeholder="患者ID・氏名・症状で全部屋から探す" oninput="onSearch()" autocomplete="off"
+         title="氏名はひらがな・カタカナ、全角・半角、姓名の間の空白の違いを無視して探します。症状は打った文字のまま探します">
   <button class="qclear" id="qclear" onclick="clearSearch()" style="display:none" title="検索をやめる" aria-label="検索をやめる">✕</button>
   <button class="qwait" id="qwait" onclick="toggleWait()" title="送迎待ちの患者を全部屋から一覧にする">🚐 送迎待ち <b id="qwait-n">0</b></button>
   <span class="qhint" id="qhint"></span>
@@ -336,7 +337,8 @@ import { ref, onValue, set, update, push, runTransaction }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
-         OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName, hasKanji } from './app-common.js?v=0.13.0';
+         OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName, hasKanji,
+         nameMatches } from './app-common.js?v=0.13.1';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
@@ -641,11 +643,16 @@ function collectSlots(pick) {
   return hits;
 }
 
-// 空き枠は探しても意味がないので対象外
+// 空き枠は探しても意味がないので対象外。
+// 症状は「熱中症」「めまい」のように漢字もかなも使われるため、打った文字は
+// そのまま照合する。氏名だけは表記がそろっていない記録も拾えるよう、
+// ひらがな・カタカナ・全角半角・姓名の間の空白の違いを無視して比べ直す
+// （氏名はカタカナで保存されるので、これがないと「やまだ」では見つからない）。
 function searchSlots(q) {
   const t = q.toLowerCase();
   return collectSlots(b => [pidShort(b), b.patientCode, b.name, b.sym, ageGenderText(b)]
-    .filter(Boolean).join(' ').toLowerCase().includes(t));
+    .filter(Boolean).join(' ').toLowerCase().includes(t)
+    || nameMatches(b.name, q));
 }
 const waitingSlots = () => collectSlots(b => !!b.waiting);
 

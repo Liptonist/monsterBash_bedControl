@@ -27,6 +27,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .filter-input{font-size:12px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#1a1a1a;font-family:inherit;width:190px;max-width:45vw}
 .filter-input:focus{outline:none;border-color:#3b82f6}
 .filter-count{font-size:11.5px;color:#888;white-space:nowrap}
+/* 検索欄に使えない文字（漢字）が入っているときの警告 */
+.filter-input.bad{border-color:#f5c6c2;background:#fff7f6}
+.name-err{display:none;margin:0 0 10px;background:#fdecea;border:1px solid #f5c6c2;border-radius:8px;
+  padding:8px 10px;font-size:11.5px;line-height:1.7;color:#b3261e}
+.name-err.show{display:block}
 .empty-msg{text-align:center;color:#aaa;padding:40px;font-size:13px}
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 table{width:100%;min-width:760px;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
@@ -154,10 +159,12 @@ tr:hover td{background:#fafafa}
       <option value="">全転帰</option>
     </select>
     <input class="filter-input" id="filter-name" type="search" placeholder="氏名で検索（部分一致）"
-           title="姓と名の間の空白や全角・半角の違いは無視して探します" oninput="applyFilter()">
+           title="ひらがなはカタカナにそろえます。姓と名の間の空白や全角・半角の違いは無視して探します（漢字では探せません）"
+           oninput="applyFilter()" onchange="onFilterNameChange()">
     <span class="filter-count" id="filter-count"></span>
     <button class="csv-btn" id="csv-btn" onclick="exportCSV()" title="絞り込んだ結果をCSVで保存します">⬇️ CSVで保存</button>
   </div>
+  <div class="name-err" id="filter-name-err"></div>
   <div id="table-area"></div>
 
   <div class="trash-section">
@@ -236,7 +243,8 @@ import { ref, onValue, set, remove, update, get, runTransaction }
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, pidShort, ROOMS,
          OUTCOMES, OUTCOME_CLASS, CSV_HEADERS, csvRow, toCSV, downloadCSV,
-         safeFileName, nameMatches, sortRecords, nextSort, sortTh } from './app-common.js?v=0.13.0';
+         safeFileName, nameMatches, sortRecords, nextSort, sortTh,
+         fixName, hasKanji } from './app-common.js?v=0.13.1';
 
 // ─── 定数（index.html と揃える） ─────────────────────
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
@@ -328,11 +336,30 @@ function setTrashSort(key) { trashSort = nextSort(trashSort, key); renderTrash()
 window.setListSort  = setListSort;
 window.setTrashSort = setTrashSort;
 
+// 氏名の検索欄はカタカナで入れてもらう（記録もカタカナでそろえているため）。
+// 入力中に直すと日本語入力の変換を邪魔するので、欄から離れたときだけ直す。
+function onFilterNameChange() {
+  const el = document.getElementById('filter-name');
+  const v = fixName(el.value);
+  if (el.value !== v) { el.value = v; applyFilter(); }
+}
+window.onFilterNameChange = onFilterNameChange;
+
+const KANJI_MSG = '漢字では探せません。カタカナで入力してください（例：ヤマダ）。';
+
 function applyFilter() {
   const room = document.getElementById('filter-room').value;
   const kind = document.getElementById('filter-kind').value;
   const out  = document.getElementById('filter-outcome').value;
-  const name = document.getElementById('filter-name').value;
+  const nameEl = document.getElementById('filter-name');
+  // 漢字が入っている間は氏名での絞り込みを見送る。打った文字は消さずに残し、
+  // 部屋・種別・転帰の絞り込みはそのまま効かせる
+  const bad = hasKanji(nameEl.value);
+  const err = document.getElementById('filter-name-err');
+  nameEl.classList.toggle('bad', bad);
+  err.classList.toggle('show', bad);
+  err.textContent = bad ? KANJI_MSG : '';
+  const name = bad ? '' : nameEl.value;
   const hits = allRecords.filter(r =>
     (!room || r.room === room) &&
     (!kind || r.kind === kind) &&
