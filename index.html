@@ -545,14 +545,15 @@ function renderTabs() {
     }).join('') +
     `</div>` +
     `<div class="tab-spacer"></div>` +
+    // 名前を短くしてあるぶん、正式な呼び名は title に持たせる
     `<div class="tab-links">` +
-    `<a class="tab-link" href="discharged.html">📋 退室済み一覧</a>` +
-    `<a class="tab-link" href="archives.html">📦 保存済み</a>` +
-    `<a class="tab-link" href="history.html">🕘 変更履歴</a>` +
+    `<a class="tab-link" href="discharged.html" title="退室済み一覧">📋 退室済</a>` +
+    `<a class="tab-link" href="archives.html" title="保存済みの記録">📦 過去</a>` +
+    `<a class="tab-link" href="history.html" title="変更履歴">🕘 履歴</a>` +
     // ユーザー管理は管理者にだけ出す
-    (me.admin ? `<a class="tab-link" href="users.html">👥 ユーザー管理</a>` : '') +
+    (me.admin ? `<a class="tab-link" href="users.html" title="ユーザー管理">👥 管理</a>` : '') +
     wakeBtnHTML() +
-    `<button class="tab-link tab-about" onclick="showAbout()" title="このアプリについて" aria-label="このアプリについて">©</button>` +
+    `<button class="tab-link tab-about" onclick="showAbout()" title="このアプリについて" aria-label="このアプリについて">c</button>` +
     `</div>`;
 }
 // 人数だけを書き換える。タブ行ごと作り直すと、横スクロールして見ている
@@ -581,8 +582,11 @@ let wakeLock = null;
 
 function wakeBtnHTML() {
   if (!wakeSupported) return '';
+  // オン・オフはボタンの色（.tab-wake.on）で見せる。文字で出すとタブ行が長くなるため、
+  // 今どちらなのかは title と aria-pressed に持たせる
   return `<button class="tab-link tab-wake${wakeOn?' on':''}" onclick="toggleWake()"
-    title="画面が自動で暗くならないようにします">☀️ スリープ防止：${wakeOn?'オン':'オフ'}</button>`;
+    aria-pressed="${wakeOn}"
+    title="画面が自動で暗くならないようにします（いまは${wakeOn?'オン':'オフ'}）">☀️ スリープ防止</button>`;
 }
 
 // announce を立てるのはボタンを押したときだけ。起動時や復帰時に取れなくても、
