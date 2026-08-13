@@ -25,6 +25,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP'
 .tab-n.zero{background:#f5f5f5;border-color:#e5e5e5;color:#aaa}
 .tab:hover:not(.on){color:#1a1a1a}
 .tab-spacer{flex:1;min-width:8px}
+/* 部屋タブとリンク類は別のまとまりにしてある。スマホの縦画面で行を分けるため */
+.tab-rooms{display:flex;align-items:center}
+.tab-links{display:flex;align-items:center}
 .tab-link{padding:8px 14px;font-size:12px;color:#6b7280;text-decoration:none;display:flex;align-items:center;gap:4px;border:1px solid #e0e0e0;border-radius:6px;margin-right:10px;background:#fff;white-space:nowrap}
 .tab-link:hover{background:#f5f5f5;color:#1a1a1a}
 button.tab-link{font-family:inherit;cursor:pointer}
@@ -180,6 +183,19 @@ button.tab-link{font-family:inherit;cursor:pointer}
   .split{flex-direction:column;min-height:auto}
   .col{padding:10px}
   .col-l{border-right:none;border-bottom:1px solid #e0e0e0}
+}
+/* スマホの縦画面だけ、部屋タブ（左）とリンク類（右）を上下2行に分ける。
+   1行に詰めると横に長すぎて、右側のボタンを出すのに毎回横スクロールが要るため。
+   横画面・タブレット・PC は幅に余裕があるので今まで通り1行のまま */
+@media (max-width:600px) and (orientation:portrait){
+  .tabs{flex-wrap:wrap;overflow-x:hidden}
+  .tab-spacer{display:none}
+  .tab-rooms{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tab-links{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;
+             border-top:1px solid #f0f0f0;padding:4px 0}
+  /* 右寄せ。入りきらないときは auto の余白が 0 になるので、
+     左端のリンクが画面外に隠れて押せなくなることはない */
+  .tab-links>:first-child{margin-left:auto}
 }
 @media (max-width:380px){
   .chair-grid{grid-template-columns:repeat(3,1fr)}
@@ -338,7 +354,7 @@ import { ref, onValue, set, update, push, runTransaction }
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
          OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName, hasKanji,
-         nameMatches } from './app-common.js?v=0.13.1';
+         nameMatches } from './app-common.js?v=0.13.2';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
@@ -521,19 +537,23 @@ function roomCount(ri) {
 
 function renderTabs() {
   document.getElementById('tabs').innerHTML =
+    `<div class="tab-rooms">` +
     ROOMS.map((n,i) => {
       const c = roomCount(i);
       return `<div class="tab${i===cur?' on':''}" onclick="sw(${i})" title="${n}の患者 ${c}人">`
            + `${n}<span class="tab-n${c ? '' : ' zero'}">${c}</span></div>`;
     }).join('') +
+    `</div>` +
     `<div class="tab-spacer"></div>` +
+    `<div class="tab-links">` +
     `<a class="tab-link" href="discharged.html">📋 退室済み一覧</a>` +
     `<a class="tab-link" href="archives.html">📦 保存済み</a>` +
     `<a class="tab-link" href="history.html">🕘 変更履歴</a>` +
     // ユーザー管理は管理者にだけ出す
     (me.admin ? `<a class="tab-link" href="users.html">👥 ユーザー管理</a>` : '') +
     wakeBtnHTML() +
-    `<button class="tab-link tab-about" onclick="showAbout()" title="このアプリについて" aria-label="このアプリについて">©</button>`;
+    `<button class="tab-link tab-about" onclick="showAbout()" title="このアプリについて" aria-label="このアプリについて">©</button>` +
+    `</div>`;
 }
 // 人数だけを書き換える。タブ行ごと作り直すと、横スクロールして見ている
 // 端末で毎秒左端に戻ってしまうため（renderAll は1秒ごとに走る）
