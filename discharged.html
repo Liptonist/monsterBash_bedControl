@@ -162,7 +162,7 @@ tr:hover td{background:#fafafa}
            title="ひらがなはカタカナにそろえます。姓と名の間の空白や全角・半角の違いは無視して探します（漢字では探せません）"
            oninput="applyFilter()" onchange="onFilterNameChange()">
     <span class="filter-count" id="filter-count"></span>
-    <button class="csv-btn" id="csv-btn" onclick="exportCSV()" title="絞り込んだ結果をCSVで保存します">⬇️ CSVで保存</button>
+    <button class="csv-btn" id="csv-btn" onclick="exportCSV()" title="絞り込んだ結果をCSVで保存します" style="display:none">⬇️ CSVで保存</button>
   </div>
   <div class="name-err" id="filter-name-err"></div>
   <div id="table-area"></div>
@@ -374,8 +374,10 @@ function applyFilter() {
 window.applyFilter = applyFilter;
 
 // ─── CSV書き出し ─────────────────────────────────────
-// 絞り込んだ結果をそのまま出す。撤収後の報告と、記録の集計に使う
+// 絞り込んだ結果をそのまま出す。撤収後の報告と、記録の集計に使う。
+// 患者記録の持ち出しになるため管理者だけ（ボタン自体を出していない）
 function exportCSV() {
+  if (!me.admin) return;
   if (!shownRecords.length) { alert('書き出せる記録がありません。'); return; }
   const csv = toCSV(CSV_HEADERS, shownRecords.map(csvRow));
   const name = safeFileName(`退室済み_${festival.year}年${festival.day}日目_${stamp()}.csv`);
@@ -883,6 +885,7 @@ function setupCloseSection() {
 requireAuth('📋 退室済み一覧', () => {
   document.getElementById('filter-outcome').innerHTML =
     `<option value="">全転帰</option>` + OUTCOMES.map(o => `<option>${o}</option>`).join('');
+  if (me.admin) document.getElementById('csv-btn').style.display = '';
   subscribeFestival(renderFestival);
   setupCloseSection();
   subscribeAll();
