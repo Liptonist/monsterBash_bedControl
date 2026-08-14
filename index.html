@@ -72,6 +72,7 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .id-item{background:#f0f0f0;border:1px solid #ccc;color:#555}
 .id-pat{background:#f0fdf4;border:1px solid #86efac;color:#166534}
 .wait-chip{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:500;background:#e8d5c4;color:#6b3a2a;border:1px solid #c4a18a}
+.comp-chip{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:500;background:#e4e9f5;color:#3f4d6b;border:1px solid #b9c4de}
 .iname{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
 .isym{font-size:10px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;min-height:13px}
 .itime{font-size:9px;color:#888;display:flex;justify-content:space-between;align-items:center;gap:3px}
@@ -86,6 +87,7 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .c-pid{font-size:8px;color:#166534;font-weight:500}
 .c-sym{font-size:8px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .c-wait{font-size:8px;color:#6b3a2a;font-weight:500;margin-top:1px}
+.c-comp{font-size:8px;color:#3f4d6b;font-weight:500;margin-top:1px}
 .c-timerow{display:flex;justify-content:space-between;align-items:center;gap:3px;margin-top:2px}
 .c-time{font-size:8px;color:#888}
 .c-elapsed{font-size:8px;font-weight:500}
@@ -129,8 +131,12 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .symq{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .sqb{padding:4px 12px;border-radius:20px;border:1px solid #ccc;background:#fafafa;font-size:11px;cursor:pointer;color:#555}
 .sqb:hover{background:#eff6ff;color:#1e40af;border-color:#93c5fd}
+/* 送迎待ち・付き添いありのチェック。狭い画面では2段に折り返す */
+.flag-row{display:flex;flex-wrap:wrap;gap:6px 16px}
 .wait-check{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#6b3a2a;cursor:pointer;user-select:none}
 .wait-check input{width:16px;height:16px;accent-color:#8b5e3c;cursor:pointer}
+.comp-check{color:#3f4d6b}
+.comp-check input{accent-color:#5b6b96}
 .savebtn{background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:9px 22px;font-size:13px;cursor:pointer;font-weight:500}
 .savebtn:hover{background:#2563eb}
 .canbtn{background:none;border:1px solid #ccc;border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;color:#555}
@@ -296,10 +302,16 @@ button.tab-link{font-family:inherit;cursor:pointer}
           <button class="sqb" onclick="setSym('気分不良')">気分不良</button>
         </div>
         <input class="finput" id="fsym" placeholder="その他、自由入力">
-        <label class="wait-check">
-          <input type="checkbox" id="fwait">
-          送迎待ち
-        </label>
+        <div class="flag-row">
+          <label class="wait-check">
+            <input type="checkbox" id="fwait">
+            送迎待ち
+          </label>
+          <label class="wait-check comp-check">
+            <input type="checkbox" id="fcomp">
+            付き添いあり
+          </label>
+        </div>
       </div>
       <div class="id-fields">
         <div>
@@ -380,7 +392,7 @@ let dischargedToday = [];   // 本日の退室記録（同名チェックに使�
 let curS = 'green';   // モーダルで選ばれているトリアージ。openM のたびに入れ直す
 
 function mkItem(localId) {
-  return {localId, patientId:null, patientCode:null, status:'empty', name:'', sym:'', waiting:false, enteredAt:null, age:null, gender:''};
+  return {localId, patientId:null, patientCode:null, status:'empty', name:'', sym:'', waiting:false, companion:false, enteredAt:null, age:null, gender:''};
 }
 function normStatus(s) {
   if (!s) return 'empty';
@@ -403,6 +415,8 @@ function subscribeAll() {
             localId: idx+1,
             status: normStatus(item.status),
             waiting: !!item.waiting,
+            // 付き添いは後から足した項目なので、持っていない古い記録は「なし」に寄せる
+            companion: !!item.companion,
           });
         });
         if (arr.length < localArr.length) localArr.splice(arr.length);
@@ -430,7 +444,7 @@ function itemPayload(item) {
   return {
     localId: item.localId, patientId: item.patientId ?? null, patientCode: item.patientCode ?? null,
     status: item.status, name: item.name, sym: item.sym,
-    waiting: !!item.waiting, enteredAt: item.enteredAt ?? null,
+    waiting: !!item.waiting, companion: !!item.companion, enteredAt: item.enteredAt ?? null,
     age: item.age ?? null, gender: item.gender || '',
   };
 }
@@ -690,6 +704,7 @@ function qrowHTML(h) {
     <span class="qrow-name">${esc(h.b.name || '氏名未入力')}</span>
     ${sub ? `<span class="qrow-sub">${esc(sub)}</span>` : ''}
     ${h.b.waiting ? `<span class="wait-chip">送迎待ち</span>` : ''}
+    ${h.b.companion ? `<span class="comp-chip">付添あり</span>` : ''}
     ${el}
   </div>`;
 }
@@ -754,10 +769,11 @@ function bedHTML(b) {
   }
   const pid  = pidShort(b) ? `<span class="id-chip id-pat">${esc(pidShort(b))}</span>` : '';
   const wait = b.waiting ? `<span class="wait-chip">送迎待ち</span>` : '';
+  const comp = b.companion ? `<span class="comp-chip">付添あり</span>` : '';
   const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
   const ag = ageGenderText(b);
   return `<div class="item ${b.status}" onclick="openM('bed',${b.localId-1})">
-    <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}${wait}</div>
+    <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}${wait}${comp}</div>
     <div class="iname">${esc(nameText)}</div>
     ${ag ? `<div class="iage">${esc(ag)}</div>` : ''}
     <div class="isym">${esc(b.sym||'')}</div>
@@ -789,6 +805,7 @@ function chairHTML(b, kind) {
   const pid  = pidShort(b) ? `<span class="c-pid">${esc(pidShort(b))}</span>` : '';
   const sym  = b.sym ? `<div class="c-sym">${esc(b.sym)}</div>` : '';
   const wait = b.waiting ? `<div class="c-wait">送迎待ち</div>` : '';
+  const comp = b.companion ? `<div class="c-comp">付添あり</div>` : '';
   const prefix = KIND_PREFIX[kind];
   const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
   const ag = ageGenderText(b);
@@ -796,7 +813,7 @@ function chairHTML(b, kind) {
     <div class="c-idrow"><span class="c-id">${prefix}${b.localId}</span>${pid}</div>
     <div class="c-name">${esc(nameText)}</div>
     ${ag ? `<div class="c-age">${esc(ag)}</div>` : ''}
-    ${sym}${wait}${timeRow}
+    ${sym}${wait}${comp}${timeRow}
   </div>`;
 }
 
@@ -832,6 +849,7 @@ function openM(kind, idx) {
   document.getElementById('fgender').value = b.gender || '';
   document.getElementById('fsym').value = b.sym;
   document.getElementById('fwait').checked = !!b.waiting;
+  document.getElementById('fcomp').checked = !!b.companion;
   document.getElementById('ftime').value = b.enteredAt ? tsToHHMM(b.enteredAt) : nowHHMM();
   document.getElementById('fout').value = nowHHMM();
   // 転帰は退室のたびに選び直す。既定は OUTCOMES の先頭（経過観察）にしておく
@@ -981,6 +999,7 @@ function slotDetail(b, status) {
   if (b.name) parts.push(b.name);
   if (b.sym) parts.push(b.sym);
   if (b.waiting) parts.push('送迎待ち');
+  if (b.companion) parts.push('付き添いあり');
   return parts.join(' / ');
 }
 
@@ -1011,6 +1030,7 @@ function saveB() {
   b.name    = name;
   b.sym     = document.getElementById('fsym').value.trim();
   b.waiting = document.getElementById('fwait').checked;
+  b.companion = document.getElementById('fcomp').checked;
   const ageVal = document.getElementById('fage').value;
   b.age     = ageVal !== '' ? Number(ageVal) : null;
   b.gender  = document.getElementById('fgender').value;
@@ -1094,7 +1114,7 @@ function checkoutB() {
   ].filter(Boolean).join(' / ');
   logChange('退室', slotLabel(roomIdx, kind, b), outDetail);
 
-  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
+  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.companion=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
   setSyncStatus('syncing');
   pushItem(roomIdx, key, idx, b);
   closeM(); renderAll();
@@ -1132,6 +1152,7 @@ function moveB() {
   dest.name     = nameField();
   dest.sym      = document.getElementById('fsym').value.trim();
   dest.waiting  = document.getElementById('fwait').checked;
+  dest.companion = document.getElementById('fcomp').checked;
   dest.age      = ageVal !== '' ? Number(ageVal) : null;
   dest.gender   = document.getElementById('fgender').value;
   dest.patientId = b.patientId;
@@ -1140,7 +1161,7 @@ function moveB() {
 
   const fromLabel = slotLabel(roomIdx, kind, b);
 
-  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
+  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.companion=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
 
   setSyncStatus('syncing');
   pushItems([

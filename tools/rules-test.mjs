@@ -54,7 +54,7 @@ const OUT   = token('nobody@example.com');               // 許可リストに�
 // index.html の itemPayload() 相当。SDK は null の子を書かないので同じ形にする
 function itemPayload(i) {
   const o = { localId: i.localId, status: i.status, name: i.name ?? '', sym: i.sym ?? '',
-              waiting: !!i.waiting, gender: i.gender ?? '' };
+              waiting: !!i.waiting, companion: !!i.companion, gender: i.gender ?? '' };
   if (i.patientId   != null) o.patientId   = i.patientId;
   if (i.patientCode != null) o.patientCode = i.patientCode;
   if (i.enteredAt   != null) o.enteredAt   = i.enteredAt;
@@ -64,7 +64,7 @@ function itemPayload(i) {
 const empty = n => itemPayload({ localId: n, status: 'empty' });
 const item = (o = {}) => ({
   localId: 1, status: 'green', name: '山田', sym: '頭痛',
-  waiting: false, enteredAt: 1700000000000, age: 30, gender: '男', ...o,
+  waiting: false, companion: false, enteredAt: 1700000000000, age: 30, gender: '男', ...o,
 });
 const rec = (o = {}) => ({
   patientId: 1, patientCode: '2026-1-001', name: '山田', age: 30, gender: '男',
@@ -146,6 +146,8 @@ await t('枠の一括更新（人数変更）ができる',         'allow', 'PU
 await t('不正なstatusは書けない',                   'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ status: 'hacked' }));
 await t('未知のフィールドは書けない',               'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ note: 'x' }));
 await t('waitingは真偽値のみ',                      'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ waiting: 'yes' }));
+await t('companionは真偽値のみ',                    'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ companion: 'yes' }));
+await t('companionなし（古い記録）でも書ける',      'allow', 'PUT', 'kyuugo/rooms/0/beds/0', STAFF, (({ companion, ...r }) => r)(item()));
 await t('氏名が長すぎると書けない',                 'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ name: 'あ'.repeat(101) }));
 await t('症状が長すぎると書けない',                 'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ sym: 'あ'.repeat(1001) }));
 await t('localIdなしは書けない',                    'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, { status: 'green' });
@@ -231,9 +233,9 @@ await step('枠に患者を登録', 'PUT', 'kyuugo/rooms/0/beds/0', STAFF, patie
 await step('変更履歴に「登録」を追記', 'POST', 'kyuugo/auditLog', STAFF,
   logChange('登録', '本部 ベッドB1', '中等症 / 1-001 / 山田太郎 / 熱中症の疑い'));
 
-console.log('\n── 編集・送迎待ち ──');
-await step('内容を編集（重症・送迎待ち）', 'PUT', 'kyuugo/rooms/0/beds/0', STAFF,
-  { ...patient, status: 'red', waiting: true, sym: 'あ'.repeat(500) });
+console.log('\n── 編集・送迎待ち・付き添い ──');
+await step('内容を編集（重症・送迎待ち・付き添いあり）', 'PUT', 'kyuugo/rooms/0/beds/0', STAFF,
+  { ...patient, status: 'red', waiting: true, companion: true, sym: 'あ'.repeat(500) });
 await step('氏名・症状が空のまま保存', 'PUT', 'kyuugo/rooms/0/beds/1', STAFF,
   itemPayload({ localId: 2, patientId: 2, patientCode: '2026-1-002', status: 'green', enteredAt: 1764547200000 }));
 await step('年齢・性別なしで保存', 'PUT', 'kyuugo/rooms/0/beds/2', STAFF,

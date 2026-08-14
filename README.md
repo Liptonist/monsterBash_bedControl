@@ -60,6 +60,7 @@ Google ログインは、Google 側のページ（`monster-bash-2026-medical.fir
    - 編集画面で選べるのはこの3つだけです。枠が空きに戻るのは**退室**か**移動**のときで、保存で空きにすることはできません（誤って登録した枠は退室して、退室済み一覧からゴミ箱へ入れてください）
 3. 状況が変わったら同じ枠をタップして編集
    - **送迎待ち**のチェックで、迎え待ちの状態を示せます
+   - **付き添いあり**のチェックで、付き添いの方が一緒にいることを示せます（枠には「付添あり」と出ます）
 4. 別の枠へ移すときは編集画面の**移動**から移動先を選ぶ
 5. 帰られるときは**転帰**（経過観察／帰宅／救急搬送）を選んで**退室**。退室済み一覧に記録が移り、枠が空きに戻る
    - 転帰の初期値は**経過観察**です。帰宅・救急搬送のときは必ず選び直してください
@@ -211,7 +212,7 @@ Google ログインは、Google 側のページ（`monster-bash-2026-medical.fir
 kyuugo
 ├─ rooms/{0-3}/{beds|chairsIn|chairsOut}/{枠番号}
 │     localId, patientId, patientCode, status, name, sym,
-│     waiting, enteredAt, age, gender
+│     waiting, companion, enteredAt, age, gender
 ├─ globalPatientId          連番カウンタ（締めで0に戻る）
 ├─ festival                 year（開催年）, day（何日目か）
 ├─ appVersion               配信中のアプリの版（例 0.13.0）。新しい版のお知らせに使う

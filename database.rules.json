@@ -89,6 +89,7 @@
               "name":        { ".validate": "newData.isString() && newData.val().length <= 100" },
               "sym":         { ".validate": "newData.isString() && newData.val().length <= 1000" },
               "waiting":     { ".validate": "newData.isBoolean()" },
+              "companion":   { ".validate": "newData.isBoolean()" },
               "enteredAt":   { ".validate": "newData.isNumber()" },
               "age":         { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200" },
               "gender":      { ".validate": "newData.isString() && newData.val().length <= 20" },
