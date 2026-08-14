@@ -49,8 +49,10 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .st-w{background:#f3ede8;color:#6b3a2a}
 .ctrl{display:flex;align-items:center;gap:5px;font-size:11px;color:#666;margin-bottom:7px}
 .cbtn{width:22px;height:22px;border-radius:4px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:#333;line-height:1}
-.cbtn:hover{background:#f0f0f0}
+.cbtn:hover:not(:disabled){background:#f0f0f0}
+.cbtn:disabled{background:#f5f5f5;border-color:#e5e5e5;color:#c0c0c0;cursor:not-allowed}
 .cval{font-weight:500;min-width:18px;text-align:center}
+.ctrl-note{font-size:10.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:5px;padding:1px 6px}
 .subgroup-label{font-size:11px;font-weight:600;color:#666;margin:10px 0 5px;padding-left:2px}
 .subgroup-label:first-child{margin-top:0}
 .bed-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
@@ -462,10 +464,6 @@ function pushItems(entries) {
   trackWrite(update(ref(db), updates))
     .then(() => setSyncStatus('online')).catch(() => {});
 }
-function pushCount(ri, kindKey) {
-  trackWrite(set(ref(db, `kyuugo/rooms/${ri}/${kindKey}`), rooms[ri][kindKey].map(itemPayload)))
-    .then(() => setSyncStatus('online')).catch(() => {});
-}
 function pushGlobalPatientId() {
   trackWrite(set(ref(db, 'kyuugo/globalPatientId'), globalPatientId - 1))
     .then(() => setSyncStatus('online')).catch(() => {});
@@ -519,6 +517,13 @@ function tsToHHMM(ts) {
   if (!ts) return '';
   const d = new Date(ts);
   return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+}
+// 消してよい枠かどうかの判定。空きに見えても患者IDや氏名・症状が残っていれば
+// 使用中として扱い、枠数を減らすときに巻き込まないようにする
+function slotInUse(b) {
+  if (!b) return false;
+  return normStatus(b.status) !== 'empty' || b.patientId != null
+      || !!(b.name || '').trim() || !!(b.sym || '').trim();
 }
 function statsOf(arr) {
   const c={empty:0,green:0,yellow:0,red:0,waiting:0};
@@ -746,12 +751,29 @@ window.jumpTo = jumpTo;
 // 人数はどの部屋の枠が変わっても動くので、タブの数字もここで更新する
 function renderAll() { updateRoomCounts(); renderBedArea(); renderChairArea(); renderSearch(); }
 
+// 減らすと消えるのはいちばん後ろの枠なので、そこが空いていないあいだは
+// 「−」を押せなくする（押せてしまうと入力済みの患者ごと消える）
+function cntCtrlHTML(kind, arr) {
+  const last = arr[arr.length-1];
+  const blocked = slotInUse(last);
+  const tip = blocked
+    ? `${KIND_PREFIX[kind]}${last.localId} を使用中のため減らせません（退室・移動してから）`
+    : `${KIND_LABEL[kind]}を1つ減らす`;
+  return `<div class="ctrl">数：`
+    + `<button class="cbtn" onclick="chgCnt('${kind}',-1)"${blocked?' disabled':''} title="${esc(tip)}">−</button>`
+    + `<span class="cval">${arr.length}</span>`
+    + `<button class="cbtn" onclick="chgCnt('${kind}',1)" title="${esc(KIND_LABEL[kind])}を1つ増やす">＋</button>`
+    // 押せない理由は、使えないボタンの説明が出ない端末でも分かるように文字でも出す
+    + (blocked ? `<span class="ctrl-note">${esc(KIND_PREFIX[kind])}${last.localId} 使用中のため減らせません</span>` : '')
+    + `</div>`;
+}
+
 function renderBedArea() {
   const r = rooms[cur];
   const c = statsOf(r.beds);
   document.getElementById('bed-area').innerHTML = `
     <div class="topbar">${statsHTML(c)}</div>
-    <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('bed',-1)">−</button><span class="cval">${r.beds.length}</span><button class="cbtn" onclick="chgCnt('bed',1)">＋</button></div>
+    ${cntCtrlHTML('bed', r.beds)}
     <div class="bed-grid">${r.beds.map(b => bedHTML(b)).join('')}</div>`;
 }
 
@@ -787,11 +809,11 @@ function renderChairArea() {
   document.getElementById('chair-area').innerHTML = `
     <div class="subgroup-label">室内椅子</div>
     <div class="topbar">${statsHTML(cIn)}</div>
-    <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('chairIn',-1)">−</button><span class="cval">${r.chairsIn.length}</span><button class="cbtn" onclick="chgCnt('chairIn',1)">＋</button></div>
+    ${cntCtrlHTML('chairIn', r.chairsIn)}
     <div class="chair-grid">${r.chairsIn.map(b => chairHTML(b,'chairIn')).join('')}</div>
     <div class="subgroup-label">室外椅子</div>
     <div class="topbar">${statsHTML(cOut)}</div>
-    <div class="ctrl">数：<button class="cbtn" onclick="chgCnt('chairOut',-1)">−</button><span class="cval">${r.chairsOut.length}</span><button class="cbtn" onclick="chgCnt('chairOut',1)">＋</button></div>
+    ${cntCtrlHTML('chairOut', r.chairsOut)}
     <div class="chair-grid">${r.chairsOut.map(b => chairHTML(b,'chairOut')).join('')}</div>`;
 }
 
@@ -818,17 +840,65 @@ function chairHTML(b, kind) {
 }
 
 // ─── ベッド数操作 ─────────────────────────────────────
-function chgCnt(kind, d) {
+// 枠数の増減。減らすと消えるのは後ろの枠なので、そこに患者がいれば取りやめる。
+// 手元の状態だけで見ると、別の端末がいま登録した患者を消してしまうおそれがあるため、
+// 判定と書き込みはトランザクションでサーバー側の値に対して行う
+async function chgCnt(kind, d) {
   const key = kindToKey(kind);
-  const arr = rooms[cur][key];
-  const n = Math.max(1, Math.min(40, arr.length+d));
+  const ri  = cur;
+  const arr = rooms[ri][key];
   const before = arr.length;
-  if (d>0) while (arr.length<n) arr.push(mkItem(arr.length+1));
-  else while (arr.length>n) arr.pop();
-  if (arr.length === before) return;   // 上限・下限に達していれば記録しない
-  pushCount(cur, key);
-  logChange('台数変更', `${ROOMS[cur]} ${KIND_LABEL[kind]}`, `${before} → ${arr.length}`);
+  const n = Math.max(1, Math.min(40, before + d));
+  if (n === before) return;   // 上限・下限に達していれば何もしない
+
+  // 手元で分かる場合はここで止めて、すぐに理由を伝える
+  const inUse = arr.slice(n).filter(slotInUse);
+  if (inUse.length) { alert(cntBlockedMsg(kind, inUse)); renderAll(); return; }
+
+  setSyncStatus('syncing');
+  let res;
+  try {
+    res = await trackWrite(runTransaction(ref(db, `kyuugo/rooms/${ri}/${key}`), server => {
+      // 位置と状態はサーバーの値を整えてから書き戻す（古い status のまま
+      // 書き返すとルールに弾かれるため、購読側と同じ正規化をかける）
+      const list = Object.values(server || {}).map((it, i) =>
+        itemPayload({ ...mkItem(i+1), ...(it || {}), localId: i+1, status: normStatus(it && it.status) }));
+      const to = Math.max(1, Math.min(40, list.length + d));
+      if (to === list.length) return list;
+      // 消える枠が使われていたら、undefined を返してこの変更を取りやめる
+      if (d < 0 && list.slice(to).some(slotInUse)) return;
+      while (list.length < to) list.push(itemPayload(mkItem(list.length + 1)));
+      list.length = to;
+      return list;
+    }));
+  } catch (e) {
+    console.warn('chgCnt:', e);
+    setSyncStatus('online');
+    return;
+  }
+  setSyncStatus('online');
+
+  if (!res.committed) {
+    // 押したのとほぼ同時に、別の端末がその枠へ登録したとき。
+    // どの枠でぶつかったのかはサーバーの最新の値から数え直す
+    const now = Object.values(res.snapshot.val() || {});
+    const to  = Math.max(1, Math.min(40, now.length + d));
+    alert(cntBlockedMsg(kind, now.slice(to).filter(slotInUse)));
+    renderAll();
+    return;
+  }
+  const after = Object.values(res.snapshot.val() || {}).length;
+  if (after === before) return;
+  logChange('台数変更', `${ROOMS[ri]} ${KIND_LABEL[kind]}`, `${before} → ${after}`);
   renderAll();
+}
+// 減らせなかったときの案内。どの枠の誰なのかまで出す
+function cntBlockedMsg(kind, items) {
+  const who = items.map(b => '・' + [`${KIND_PREFIX[kind]}${b.localId}`, pidShort(b), b.name || '氏名未入力']
+    .filter(Boolean).join(' ')).join('\n');
+  return `${KIND_LABEL[kind]}を減らせません。使用中の枠が消えてしまいます。\n\n`
+       + (who ? who + '\n\n' : '')
+       + '退室するか、別の枠へ移動してから減らしてください。';
 }
 window.chgCnt = chgCnt;
 
