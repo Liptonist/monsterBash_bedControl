@@ -840,6 +840,23 @@ function chairHTML(b, kind) {
 }
 
 // ─── ベッド数操作 ─────────────────────────────────────
+// 枠の配列そのものを d だけ増減するトランザクション。
+// 減らすときに消える枠が使われていたら、undefined を返して丸ごと取りやめる
+function resizeTx(ri, key, d) {
+  return runTransaction(ref(db, `kyuugo/rooms/${ri}/${key}`), server => {
+    // 位置と状態はサーバーの値を整えてから書き戻す（古い status のまま
+    // 書き返すとルールに弾かれるため、購読側と同じ正規化をかける）
+    const list = Object.values(server || {}).map((it, i) =>
+      itemPayload({ ...mkItem(i+1), ...(it || {}), localId: i+1, status: normStatus(it && it.status) }));
+    const to = Math.max(1, Math.min(40, list.length + d));
+    if (to === list.length) return list;
+    if (d < 0 && list.slice(to).some(slotInUse)) return;
+    while (list.length < to) list.push(itemPayload(mkItem(list.length + 1)));
+    list.length = to;
+    return list;
+  });
+}
+
 // 枠数の増減。減らすと消えるのは後ろの枠なので、そこに患者がいれば取りやめる。
 // 手元の状態だけで見ると、別の端末がいま登録した患者を消してしまうおそれがあるため、
 // 判定と書き込みはトランザクションでサーバー側の値に対して行う
@@ -858,19 +875,7 @@ async function chgCnt(kind, d) {
   setSyncStatus('syncing');
   let res;
   try {
-    res = await trackWrite(runTransaction(ref(db, `kyuugo/rooms/${ri}/${key}`), server => {
-      // 位置と状態はサーバーの値を整えてから書き戻す（古い status のまま
-      // 書き返すとルールに弾かれるため、購読側と同じ正規化をかける）
-      const list = Object.values(server || {}).map((it, i) =>
-        itemPayload({ ...mkItem(i+1), ...(it || {}), localId: i+1, status: normStatus(it && it.status) }));
-      const to = Math.max(1, Math.min(40, list.length + d));
-      if (to === list.length) return list;
-      // 消える枠が使われていたら、undefined を返してこの変更を取りやめる
-      if (d < 0 && list.slice(to).some(slotInUse)) return;
-      while (list.length < to) list.push(itemPayload(mkItem(list.length + 1)));
-      list.length = to;
-      return list;
-    }));
+    res = await trackWrite(resizeTx(ri, key, d));
   } catch (e) {
     console.warn('chgCnt:', e);
     setSyncStatus('online');
@@ -907,7 +912,9 @@ function openM(kind, idx) {
   const key = kindToKey(kind);
   const b = rooms[cur][key][idx];
   if (!b) return;
-  editCtx = {kind, key, idx, roomIdx: cur};
+  // snap は開いた時点の枠の写し。モーダルを開いているあいだに、その枠が
+  // 他の端末で減らされて無くなることがあるので、そのときの拠りどころにする
+  editCtx = {kind, key, idx, roomIdx: cur, snap: {...b}};
   curS = b.status==='empty' ? 'green' : b.status;
   const prefix = KIND_PREFIX[kind];
   document.getElementById('mtitle').textContent = `${KIND_LABEL[kind]} ${ROOMS[cur]}-${prefix}${b.localId} 編集`;
@@ -1073,19 +1080,72 @@ function slotDetail(b, status) {
   return parts.join(' / ');
 }
 
+// モーダルを開いているあいだに、その枠が他の端末で減らされることがある。
+// 入力した内容は残っているので、枠を戻すか、記録だけ残すかで拾えるようにする
+const SLOT_GONE = 'この枠は、ほかの端末で枠数が減らされたため、いまは無くなっています。';
+
+// 枠を1つ増やし、増えた枠を編集対象に付け替えてから保存し直す
+async function saveToNewSlot() {
+  const {kind, key, roomIdx, snap} = editCtx;
+  if (!confirm(`${SLOT_GONE}\n\n${KIND_LABEL[kind]}を1つ増やして、そこへ登録しますか？\n`
+             + '（キャンセルすると、この入力内容は保存されません）')) return;
+  setSyncStatus('syncing');
+  let res;
+  try {
+    res = await trackWrite(resizeTx(roomIdx, key, 1));
+  } catch (e) {
+    console.warn('saveToNewSlot:', e);
+    setSyncStatus('online');
+    alert('枠を増やせませんでした。通信の状態を確かめて、もう一度お試しください。');
+    return;
+  }
+  setSyncStatus('online');
+
+  const list = Object.values(res.snapshot.val() || {});
+  const newIdx = list.length - 1;
+  // 上限（40）に達していて増えなかった場合や、増えた枠がすでに使われていた場合。
+  // ここで止めないと、他の患者の枠を上書きしてしまう
+  if (!res.committed || newIdx < 0 || slotInUse(list[newIdx])) {
+    alert(`${KIND_LABEL[kind]}を増やせませんでした（上限は40です）。\n`
+        + '空いている枠を選んで、入力し直してください。');
+    return;
+  }
+
+  const arr = rooms[roomIdx][key];
+  const beforeLen = arr.length;
+  while (arr.length <= newIdx) arr.push(mkItem(arr.length + 1));
+  const fresh = arr[newIdx];
+  // すでに患者IDが出ている人（登録済みの枠が消えた場合）は、そのIDのまま戻す
+  if (snap && snap.patientId != null) {
+    fresh.patientId   = snap.patientId;
+    fresh.patientCode = snap.patientCode ?? null;
+    fresh.status      = normStatus(snap.status);
+    fresh.enteredAt   = snap.enteredAt ?? null;
+  }
+  // 上限に当たって増えなかった（＝空いていた最後の枠を使う）ときは記録しない
+  if (list.length !== beforeLen) {
+    logChange('台数変更', `${ROOMS[roomIdx]} ${KIND_LABEL[kind]}`,
+              `${beforeLen} → ${list.length}（登録のため枠を戻した）`);
+  }
+  editCtx = {...editCtx, idx: newIdx};
+  document.getElementById('fid').value = `${KIND_PREFIX[kind]}${fresh.localId}`;
+  saveB();
+}
+
 function saveB() {
   if (!editCtx) return;
   const {kind, key, idx, roomIdx} = editCtx;
-  const b = rooms[roomIdx][key][idx];
-  if (!b) return;
-  const wasEmpty = b.status==='empty';
   const name = nameField();
-  // 漢字は保存させない。欄を赤くして案内も出したうえで、押した操作は取りやめる
+  // 漢字は保存させない。欄を赤くして案内も出したうえで、押した操作は取りやめる。
+  // 枠があるかどうかより先に見る（枠を戻したのに保存できない、を避けるため）
   if (renderNameErr()) {
     alert(KANJI_MSG);
     document.getElementById('fname').focus();
     return;
   }
+  const b = rooms[roomIdx][key][idx];
+  if (!b) { saveToNewSlot(); return; }
+  const wasEmpty = b.status==='empty';
   // 新しく受け入れるときだけ念のため確認する。編集で開き直すたびには聞かない
   if (wasEmpty) {
     const hits = sameNameToday(name, editCtx);
@@ -1146,7 +1206,11 @@ window.saveB = saveB;
 function checkoutB() {
   if (!editCtx) return;
   const {kind, key, idx, roomIdx} = editCtx;
-  const b = rooms[roomIdx][key][idx];
+  const live = rooms[roomIdx][key][idx];
+  // 枠が無くなっていても、退室したこと自体は記録に残せるようにする。
+  // 空きに戻す相手がいないだけなので、枠を作り直す必要はない
+  if (!live && !confirm(`${SLOT_GONE}\n\n退室の記録だけ残しますか？`)) return;
+  const b = live || editCtx.snap;
   if (!b) return;
 
   const inTs  = parseTimeToTs(document.getElementById('ftime').value, b.enteredAt) ?? b.enteredAt;
@@ -1184,9 +1248,11 @@ function checkoutB() {
   ].filter(Boolean).join(' / ');
   logChange('退室', slotLabel(roomIdx, kind, b), outDetail);
 
-  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.companion=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
-  setSyncStatus('syncing');
-  pushItem(roomIdx, key, idx, b);
+  if (live) {
+    b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.companion=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
+    setSyncStatus('syncing');
+    pushItem(roomIdx, key, idx, b);
+  }
   closeM(); renderAll();
 }
 window.checkoutB = checkoutB;
@@ -1195,7 +1261,11 @@ window.checkoutB = checkoutB;
 function moveB() {
   if (!editCtx) return;
   const {kind, key, idx, roomIdx} = editCtx;
-  const b = rooms[roomIdx][key][idx];
+  const live = rooms[roomIdx][key][idx];
+  // 元の枠が無くなっていても、移動先へ入れ直せば患者は残せる。
+  // 空にする元の枠がないだけなので、移動先への書き込みだけを行う
+  if (!live && !confirm(`${SLOT_GONE}\n\n移動先の枠へ登録し直しますか？`)) return;
+  const b = live || editCtx.snap;
   if (!b || b.status==='empty') return;
 
   const destRoom = Number(document.getElementById('fmove-room').value);
@@ -1231,13 +1301,14 @@ function moveB() {
 
   const fromLabel = slotLabel(roomIdx, kind, b);
 
-  b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.companion=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
+  const writes = [[destRoom, destKey, destIdx, dest]];
+  if (live) {
+    b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.companion=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
+    writes.push([roomIdx, key, idx, b]);
+  }
 
   setSyncStatus('syncing');
-  pushItems([
-    [destRoom, destKey, destIdx, dest],
-    [roomIdx, key, idx, b],
-  ]);
+  pushItems(writes);
   logChange('移動', `${fromLabel} → ${slotLabel(destRoom, destKind, dest)}`, slotDetail(dest, curS));
   closeM(); renderAll();
 }
