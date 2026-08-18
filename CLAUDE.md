@@ -67,6 +67,8 @@ firebase emulators:start --only database --project monster-bash-test   # needs f
 node tools/rules-test.mjs                                              # in another terminal
 ```
 
+`kyuugo/auditLog` is append-only *by rule* — `$entry` requires `!data.exists() && newData.exists()`, so no client (admin included) can edit or delete an entry; pruning it is a console export/import job, and `tools/audit-split.mjs` does the offline half of that (splits an exported JSON into a full backup, a keep-set, and a removed-set; `KEEP_ACTIONS` is the list of user-management actions to retain). It never touches the database.
+
 `tools/rules-test.mjs` checks both directions: that forbidden operations are denied, and that every real app flow (受け入れ・移動・退室・ゴミ箱・締め・ユーザー管理) still goes through. Add a case there when you change the rules.
 
 ## Conventions
