@@ -318,7 +318,7 @@ button.tab-link{font-family:inherit;cursor:pointer}
           <button class="sqb" onclick="setSym('熱中症')">熱中症</button>
           <button class="sqb" onclick="setSym('気分不良')">気分不良</button>
         </div>
-        <input class="finput" id="fsym" placeholder="その他、自由入力">
+        <input class="finput" id="fsym" placeholder="その他、自由入力" oninput="onSymInput()">
         <div class="flag-row">
           <label class="wait-check">
             <input type="checkbox" id="fwait">
@@ -383,7 +383,7 @@ import { ref, onValue, set, update, push, runTransaction }
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
          OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName, hasKanji,
-         nameMatches, ROOM_CHART_PREFIX, makeChartId, splitChartId } from './app-common.js?v=1.1.0';
+         nameMatches, ROOM_CHART_PREFIX, makeChartId, splitChartId } from './app-common.js?v=1.1.1';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
@@ -490,6 +490,27 @@ function pushGlobalPatientId() {
 function pushDischarge(record) {
   trackWrite(push(ref(db, 'kyuugo/discharged'), record))
     .then(() => setSyncStatus('online')).catch(() => {});
+}
+// 患者IDを1つ発番する。サーバーの採番（他の端末と番号がぶつからないように
+// トランザクションで進める）が通らなかったときも、手元の番号で続けて記録を残す。
+// 登録（保存）と退室の両方から呼ぶので、採番はここ1か所にまとめる
+function issuePatientId() {
+  return trackWrite(runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1))
+    .then(result => {
+      if (result.committed) {
+        const id = result.snapshot.val();
+        globalPatientId = id + 1;
+        return id;
+      }
+      const id = globalPatientId++;
+      pushGlobalPatientId();
+      return id;
+    })
+    .catch(() => {
+      const id = globalPatientId++;
+      pushGlobalPatientId();
+      return id;
+    });
 }
 
 // ─── 接続状態 ─────────────────────────────────────────
@@ -968,6 +989,7 @@ function openM(kind, idx) {
   updSOpts();
   renderNameErr();
   renderDupHint();
+  updCheckoutBtn();
   document.getElementById('ovl').classList.add('show');
 }
 window.openM = openM;
@@ -1006,8 +1028,24 @@ window.selS = selS;
 function updSOpts() {
   document.querySelectorAll('.sopt').forEach(el => el.classList.toggle('sel', el.dataset.s===curS));
 }
-function setSym(s) { document.getElementById('fsym').value = s; }
+function setSym(s) { document.getElementById('fsym').value = s; updCheckoutBtn(); }
 window.setSym = setSym;
+
+// 「退室する」は受け入れ済みの枠のためのボタン。まだ空きの枠では押せないようにして、
+// 押し間違いで中身の無い記録が増えるのを防ぐ。ただし、保存を押さずに帰る人
+// （来てすぐ帰る軽症の人）も居るので、氏名か症状を入れた時点で押せるようにする
+function updCheckoutBtn() {
+  const btn = document.getElementById('checkout-btn');
+  if (!btn) return;
+  const b = editCtx ? (rooms[editCtx.roomIdx][editCtx.key][editCtx.idx] || editCtx.snap) : null;
+  const isEmpty = !b || normStatus(b.status) === 'empty';
+  const typed = document.getElementById('fname').value.trim()
+             || document.getElementById('fsym').value.trim();
+  btn.disabled = isEmpty && !typed;
+  btn.title = btn.disabled ? NOT_REGISTERED_MSG : '';
+}
+function onSymInput() { updCheckoutBtn(); }
+window.onSymInput = onSymInput;
 
 // ─── 同名の利用歴チェック ─────────────────────────────
 // 同じ人が日に何度も来ることがある一方、別人の同姓同名もある。
@@ -1058,7 +1096,7 @@ function renderDupHint() {
       h.pid ? `<span class="dup-pid">${esc(h.pid)}</span>` : ''
     }${esc(h.state)}${h.sub ? `（${esc(h.sub)}）` : ''}</span>`).join('');
 }
-function onNameInput() { renderNameErr(); renderDupHint(); }
+function onNameInput() { renderNameErr(); renderDupHint(); updCheckoutBtn(); }
 window.onNameInput = onNameInput;
 
 // ─── 患者名の補正と、漢字の入力を止める ────────────────
@@ -1115,7 +1153,7 @@ function renderNameErr() {
   return bad;
 }
 
-function onNameChange() { nameField(); renderNameErr(); renderDupHint(); }
+function onNameChange() { nameField(); renderNameErr(); renderDupHint(); updCheckoutBtn(); }
 window.onNameChange = onNameChange;
 
 // ─── 保存 ─────────────────────────────────────────────
@@ -1227,29 +1265,13 @@ function saveB() {
   b.enteredAt = parseTimeToTs(document.getElementById('ftime').value, b.enteredAt);
   setSyncStatus('syncing');
   if (wasEmpty && !b.patientId) {
-    trackWrite(runTransaction(ref(db, 'kyuugo/globalPatientId'), current => (current || 0) + 1))
-      .then(result => {
-        if (result.committed) {
-          b.patientId = result.snapshot.val();
-          b.patientCode = formatPid(b.patientId);
-          globalPatientId = b.patientId + 1;
-        } else {
-          b.patientId = globalPatientId++;
-          b.patientCode = formatPid(b.patientId);
-          pushGlobalPatientId();
-        }
-        pushItem(roomIdx, key, idx, b);
-        logChange('登録', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
-        renderAll();
-      })
-      .catch(() => {
-        b.patientId = globalPatientId++;
-        b.patientCode = formatPid(b.patientId);
-        pushGlobalPatientId();
-        pushItem(roomIdx, key, idx, b);
-        logChange('登録', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
-        renderAll();
-      });
+    issuePatientId().then(id => {
+      b.patientId   = id;
+      b.patientCode = formatPid(id);
+      pushItem(roomIdx, key, idx, b);
+      logChange('登録', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
+      renderAll();
+    });
   } else {
     pushItem(roomIdx, key, idx, b);
     logChange('編集', slotLabel(roomIdx, kind, b), slotDetail(b, curS));
@@ -1259,7 +1281,17 @@ function saveB() {
 window.saveB = saveB;
 
 // ─── 退室処理 ─────────────────────────────────────────
-function checkoutB() {
+// まだ受け入れ登録していない（空きの）枠から退室しようとしたときの案内。
+// 押し間違いで中身の無い記録が増えないよう、氏名も症状も無ければ受け付けない
+const NOT_REGISTERED_MSG =
+  'この枠はまだ受け入れ登録されていません。\n\n'
+  + '氏名か症状を入れてから「退室する」を押すか、先に「保存する」で受け入れてください。';
+const NOT_REGISTERED_Q =
+  'この枠はまだ受け入れ登録されていません（保存を押していません）。\n\n'
+  + 'このまま患者IDを発番して、退室の記録だけ残しますか？\n'
+  + '（枠は空きのままです）';
+
+async function checkoutB() {
   if (!editCtx) return;
   const {kind, key, idx, roomIdx} = editCtx;
   const live = rooms[roomIdx][key][idx];
@@ -1269,26 +1301,69 @@ function checkoutB() {
   const b = live || editCtx.snap;
   if (!b) return;
 
+  // 入力欄はここで読み切っておく。患者IDの発番を待つあいだに
+  // 画面をさわられても、押した時点の内容で記録が残るようにするため
+  const name    = nameField() || b.name;
+  const chartId = chartField() || b.chartId || null;
+  const sym     = document.getElementById('fsym').value.trim() || b.sym;
+  const ageVal  = document.getElementById('fage').value;
+  const gender  = document.getElementById('fgender').value || b.gender || null;
+  const outcome = document.getElementById('foutcome').value || null;
+
+  // 保存を押さずに退室した人（来てすぐ帰る軽症の人）もここを通る。
+  // 空きの枠でも記録は残せるが、押し間違いと区別するために一度確認する
+  const notRegistered = normStatus(b.status) === 'empty';
+  if (notRegistered) {
+    if (!name && !sym) { alert(NOT_REGISTERED_MSG); return; }
+    if (!confirm(NOT_REGISTERED_Q)) return;
+  }
+
   const inTs  = parseTimeToTs(document.getElementById('ftime').value, b.enteredAt) ?? b.enteredAt;
   let   outTs = parseTimeToTs(document.getElementById('fout').value, Date.now());
   // 23:50入室 → 00:10退室 のように日付をまたいだら、退室は翌日として数える
   if (outTs != null && inTs != null && outTs < inTs) outTs += DAY_MS;
   const stayMs = (outTs && inTs) ? Math.max(0, outTs - inTs) : null;
 
-  const ageVal = document.getElementById('fage').value;
+  // 患者IDの無いまま記録に残さない。保存を押さずに退室した場合のほか、
+  // 通信が切れていて登録時に発番できていなかった場合もここで拾う。
+  // 発番を待つあいだは二度押しできないようにボタンを止める
+  const btn = document.getElementById('checkout-btn');
+  if (b.patientId == null) {
+    if (btn) btn.disabled = true;
+    setSyncStatus('syncing');
+    let id;
+    try {
+      id = await issuePatientId();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+    // 待っているあいだに編集する枠が変わっていたら、その枠の記録は残さない
+    if (!editCtx || editCtx.idx !== idx || editCtx.key !== key || editCtx.roomIdx !== roomIdx) return;
+    // 空きの枠を、待っているあいだに他の端末が使い始めていたときは取りやめる。
+    // ここで進めると、いま登録されたばかりの患者を消してしまう
+    const now = rooms[roomIdx][key][idx];
+    if (notRegistered && now && normStatus(now.status) !== 'empty') {
+      alert('この枠は、ほかの端末でいま使われはじめました。\n退室の記録は残していません。');
+      renderAll();
+      return;
+    }
+    b.patientId   = id;
+    b.patientCode = formatPid(id);
+  }
+
   const record = {
     patientId:  b.patientId ?? null,
     patientCode: b.patientCode ?? null,
-    chartId:    chartField() || b.chartId || null,
-    name:       nameField() || b.name,
+    chartId:    chartId,
+    name:       name,
     age:        ageVal !== '' ? Number(ageVal) : (b.age ?? null),
-    gender:     document.getElementById('fgender').value || b.gender || null,
-    sym:        document.getElementById('fsym').value.trim()  || b.sym,
+    gender:     gender,
+    sym:        sym,
     room:       ROOMS[roomIdx],
     slotId:     `${KIND_PREFIX[kind]}${b.localId}`,
     kind:       KIND_LABEL[kind],
     triage:     SL[curS] || curS,
-    outcome:    document.getElementById('foutcome').value || null,
+    outcome:    outcome,
     enteredAt:  inTs ?? null,
     exitedAt:   outTs ?? null,
     stayMins:   stayMs !== null ? Math.floor(stayMs/60000) : null,
@@ -1303,9 +1378,12 @@ function checkoutB() {
     record.triage,
     record.outcome || null,
     record.stayMins != null ? `滞在${record.stayMins}分` : null,
+    notRegistered ? '受け入れ登録なし' : null,
   ].filter(Boolean).join(' / ');
   logChange('退室', slotLabel(roomIdx, kind, b), outDetail);
 
+  // 空きの枠から退室したときも、ここで手元の患者IDを消しておく。
+  // 発番した番号が空き枠に残ると、次の人がその番号を引き継いでしまう
   if (live) {
     b.status='empty'; b.name=''; b.sym=''; b.waiting=false; b.companion=false; b.enteredAt=null; b.patientId=null; b.patientCode=null; b.age=null; b.gender='';
     setSyncStatus('syncing');
