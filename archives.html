@@ -47,6 +47,7 @@ td.sym-cell{white-space:normal;min-width:110px;max-width:220px}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#fafafa}
 .pid{font-size:10px;padding:2px 6px;border-radius:4px;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-weight:500}
+.chart-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-weight:500}
 .room-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;font-weight:500}
 .slot-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#f5f5f5;border:1px solid #ccc;color:#555;font-weight:500}
 .csv-btn{margin-left:auto;background:#fff;border:1px solid #86efac;color:#166534;border-radius:6px;padding:5px 12px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap}
@@ -79,7 +80,7 @@ tr:hover td{background:#fafafa}
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { db, requireAuth, me, pidShort, ROOMS,
          CSV_HEADERS, csvRow, toCSV, downloadCSV, safeFileName,
-         nameMatches, sortRecords, nextSort, sortTh } from './app-common.js?v=1.0.1';
+         nameMatches, sortRecords, nextSort, sortTh } from './app-common.js?v=1.1.0';
 
 const $ = id => document.getElementById(id);
 
@@ -122,6 +123,7 @@ function tableHTML(records, sort, handler) {
   const th = (label, key) => sortTh(label, key, sort, handler);
   const rows = records.map(r => `<tr>
     <td>${pidShort(r) ? `<span class="pid">${esc(pidShort(r))}</span>` : '—'}</td>
+    <td>${r.chartId ? `<span class="chart-badge">${esc(r.chartId)}</span>` : '—'}</td>
     <td>${esc(r.name || '—')}</td>
     <td>${[r.age != null && r.age !== '' ? esc(r.age) + '歳' : '', esc(r.gender || '')].filter(Boolean).join('・') || '—'}</td>
     <td class="sym-cell">${esc(r.sym || '—')}</td>
@@ -136,7 +138,7 @@ function tableHTML(records, sort, handler) {
 
   return `<div class="table-scroll"><table>
     <thead><tr>
-      ${th('患者ID', 'pid')}${th('氏名', 'name')}${th('年齢・性別', 'age')}${th('症状', 'sym')}${th('部屋', 'room')}
+      ${th('患者ID', 'pid')}${th('紙カルテ', 'chart')}${th('氏名', 'name')}${th('年齢・性別', 'age')}${th('症状', 'sym')}${th('部屋', 'room')}
       ${th('枠', 'slot')}${th('重症度', 'triage')}${th('転帰', 'outcome')}${th('入室', 'enteredAt')}${th('退室', 'exitedAt')}${th('滞在', 'stayMins')}
     </tr></thead>
     <tbody>${rows}</tbody></table></div>`;

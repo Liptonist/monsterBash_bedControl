@@ -51,6 +51,8 @@ td.sym-cell{white-space:normal;min-width:110px;max-width:220px}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#fafafa}
 .pid{font-size:10px;padding:2px 6px;border-radius:4px;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-weight:500}
+/* 紙カルテID。メイン画面の .id-chart と同じ紙色にそろえる */
+.chart-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-weight:500}
 .room-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;font-weight:500}
 .slot-badge{font-size:10px;padding:2px 6px;border-radius:4px;background:#f5f5f5;border:1px solid #ccc;color:#555;font-weight:500}
 /* 重症度。配色はメイン画面（index.html の .st-g/.st-y/.st-r）に合わせる */
@@ -244,7 +246,7 @@ import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, pidShort, ROOMS,
          OUTCOMES, OUTCOME_CLASS, CSV_HEADERS, csvRow, toCSV, downloadCSV,
          safeFileName, nameMatches, sortRecords, nextSort, sortTh,
-         fixName, hasKanji } from './app-common.js?v=1.0.1';
+         fixName, hasKanji } from './app-common.js?v=1.1.0';
 
 // ─── 定数（index.html と揃える） ─────────────────────
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};
@@ -456,6 +458,7 @@ function recordRowHTML(r, action) {
   else if (action === 'restore') actionCell = `<td><button class="restore-btn" onclick="restoreFromTrash('${r._key}')" title="退室済み一覧に戻す">↩️ 一覧に戻す</button></td>`;
   return `<tr>
     <td>${pidShort(r) ? `<span class="pid">${esc(pidShort(r))}</span>` : '—'}</td>
+    <td>${r.chartId ? `<span class="chart-badge">${esc(r.chartId)}</span>` : '—'}</td>
     <td>${esc(r.name || '—')}</td>
     <td>${ageText(r)}</td>
     <td class="sym-cell">${esc(r.sym || '—')}</td>
@@ -481,6 +484,7 @@ function tableHTML(records, action, sort, handler) {
       <thead>
         <tr>
           ${th('患者ID', 'pid')}
+          ${th('紙カルテ', 'chart')}
           ${th('患者名', 'name')}
           ${th('年齢', 'age')}
           ${th('症状', 'sym')}
@@ -536,6 +540,7 @@ function recLabel(r) {
 function recDetail(r) {
   return [
     pidShort(r) || null,
+    r.chartId || null,
     r.name || null,
     r.triage || null,
     r.outcome || null,
@@ -636,6 +641,7 @@ function openReenter(key) {
 
   $r('re-sum').innerHTML = [
     pidShort(rec) ? `<b>${esc(pidShort(rec))}</b>` : '',
+    rec.chartId ? esc(rec.chartId) : '',
     esc(rec.name || '氏名未入力'),
     rec.sym ? esc(rec.sym) : '',
     `${tsToHHMM(rec.enteredAt)} 入室 → ${tsToHHMM(rec.exitedAt)} 退室`,
@@ -668,6 +674,7 @@ function slotPayload(rec, idx) {
     localId:     idx + 1,
     patientId:   rec.patientId ?? null,
     patientCode: rec.patientCode ?? null,
+    chartId:     rec.chartId || null,
     status:      TRIAGE_STATUS[rec.triage] || 'green',
     name:        rec.name || '',
     sym:         rec.sym || '',

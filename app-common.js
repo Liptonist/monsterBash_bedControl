@@ -59,6 +59,29 @@ export const pidShort = r => pidText(r).replace(/^\d{4}-/, '');
 // kyuugo/rooms の添字がこの並び順に対応する。表示順・並べ替えの順もこれに揃える。
 export const ROOMS = ['本部', '空海横', 'サーカス', '茶堂'];
 
+// ─── 紙カルテID ──────────────────────────────────────
+// 紙カルテは部屋ごとに記号が決まっていて、番号は3桁（例：本部 → ホ001）。
+// ROOMS と同じ並び。番号は部屋ごとの通し番号で、アプリは採番しない
+// （紙が正、アプリは紙に書かれた番号を控えるだけ）。
+export const ROOM_CHART_PREFIX = ['ホ', 'ク', 'サ', 'チ'];
+
+// 打った番号を3桁にそろえる。全角数字も半角にし、数字以外は捨てる。
+// 4桁以上になったらそのまま（001〜999 で足りる想定だが、切り捨てはしない）
+export function fixChartNo(v) {
+  const d = String(v ?? '').normalize('NFKC').replace(/[^0-9]/g, '').slice(0, 4);
+  return d ? d.padStart(3, '0') : '';
+}
+// 記号と番号から紙カルテID（例：ホ001）を作る。番号が無ければ空文字
+export function makeChartId(prefix, no) {
+  const n = fixChartNo(no);
+  return n ? String(prefix || '') + n : '';
+}
+// 保存済みの紙カルテIDを記号と番号に分ける。記号が無い古い値でも番号だけ拾える
+export function splitChartId(v) {
+  const m = /^([^0-9]*)([0-9]*)$/.exec(String(v ?? '').trim());
+  return m ? {prefix: m[1], no: m[2]} : {prefix: '', no: ''};
+}
+
 // ─── 転帰（退室したときの結果） ──────────────────────
 // 退室記録の outcome に、この文字列のいずれかがそのまま入る。
 // 増やすときは database.rules.json の文字数上限（20）に収まるようにする。
@@ -70,7 +93,7 @@ export const OUTCOME_CLASS = {'経過観察':'obs', '帰宅':'ok', '救急搬送
 // ─── CSV書き出し ─────────────────────────────────────
 // 退室記録（kyuugo/discharged と保存済みの記録）を表計算ソフトで開ける形にする。
 export const CSV_HEADERS = [
-  '患者ID', '氏名', '年齢', '性別', '症状', '部屋', '枠ID', '種別',
+  '患者ID', '紙カルテ', '氏名', '年齢', '性別', '症状', '部屋', '枠ID', '種別',
   '重症度', '転帰', '入室', '退室', '滞在(分)', '記録時刻',
 ];
 
@@ -85,7 +108,7 @@ function csvTime(ts) {
 
 export function csvRow(r) {
   return [
-    pidText(r), r.name ?? '', r.age ?? '', r.gender ?? '', r.sym ?? '',
+    pidText(r), r.chartId ?? '', r.name ?? '', r.age ?? '', r.gender ?? '', r.sym ?? '',
     r.room ?? '', r.slotId ?? '', r.kind ?? '', r.triage ?? '', r.outcome ?? '',
     csvTime(r.enteredAt), csvTime(r.exitedAt),
     r.stayMins ?? '', csvTime(r.recordedAt),
@@ -178,6 +201,7 @@ function slotNumOf(r) {
 // 列ごとの比べる値。null と空文字は「未入力」とみなす
 export const SORT_ACCESSORS = {
   pid:       r => (r.patientId != null ? Number(r.patientId) : null),
+  chart:     r => r.chartId || '',
   name:      r => r.name || '',
   sym:       r => r.sym || '',
   room:      r => { const i = ROOMS.indexOf(r.room); return i < 0 ? null : i; },
@@ -830,7 +854,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '1.0.1',
+  version:   '1.1.0',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -838,6 +862,15 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '1.1.0', date: '2026-08-22', items: [
+    '紙カルテIDの欄を足した。記号（本部＝ホ／空海横＝ク／サーカス＝サ／茶堂＝チ）は'
+      + '開いた部屋のものが最初から入っていて、番号は数字だけ打てば3桁にそろいます'
+      + '（1 → 001）。番号の欄は数字のキーボードで開きます',
+    '紙カルテIDは枠・退室済み一覧・保存済みの記録・CSVに出ます。'
+      + 'メイン画面の検索欄でも探せます（患者ID・紙カルテ・氏名・症状）',
+    '移動しても紙カルテIDは付け替えません（紙は患者と一緒に動くため）。'
+      + '別の部屋から移ってきた患者の記号を直したいときは、編集画面で選び直せます',
+  ]},
   {version: '1.0.1', date: '2026-08-22', items: [
     '退室したあとの枠に、患者ID・入室時刻・年齢だけが残って見えることがあったのを直した。'
       + '端末を閉じている（スリープしている）あいだに他の端末で退室すると、'

@@ -57,17 +57,18 @@ function itemPayload(i) {
               waiting: !!i.waiting, companion: !!i.companion, gender: i.gender ?? '' };
   if (i.patientId   != null) o.patientId   = i.patientId;
   if (i.patientCode != null) o.patientCode = i.patientCode;
+  if (i.chartId     != null) o.chartId     = i.chartId;
   if (i.enteredAt   != null) o.enteredAt   = i.enteredAt;
   if (i.age         != null) o.age         = i.age;
   return o;
 }
 const empty = n => itemPayload({ localId: n, status: 'empty' });
 const item = (o = {}) => ({
-  localId: 1, status: 'green', name: '山田', sym: '頭痛',
+  localId: 1, status: 'green', name: '山田', sym: '頭痛', chartId: 'ホ001',
   waiting: false, companion: false, enteredAt: 1700000000000, age: 30, gender: '男', ...o,
 });
 const rec = (o = {}) => ({
-  patientId: 1, patientCode: '2026-1-001', name: '山田', age: 30, gender: '男',
+  patientId: 1, patientCode: '2026-1-001', chartId: 'ホ001', name: '山田', age: 30, gender: '男',
   sym: '頭痛', room: '本部', slotId: 'B1', kind: 'ベッド',
   triage: '軽症', outcome: '帰宅', enteredAt: 1, exitedAt: 2, stayMins: 1, recordedAt: 3, ...o,
 });
@@ -149,6 +150,9 @@ await t('waitingは真偽値のみ',                      'deny',  'PUT', 'kyuug
 await t('companionは真偽値のみ',                    'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ companion: 'yes' }));
 await t('companionなし（古い記録）でも書ける',      'allow', 'PUT', 'kyuugo/rooms/0/beds/0', STAFF, (({ companion, ...r }) => r)(item()));
 await t('氏名が長すぎると書けない',                 'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ name: 'あ'.repeat(101) }));
+await t('紙カルテIDなし（未記入）でも書ける',       'allow', 'PUT', 'kyuugo/rooms/0/beds/0', STAFF, (({ chartId, ...r }) => r)(item()));
+await t('紙カルテIDが長すぎると書けない',           'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ chartId: 'ホ'.repeat(17) }));
+await t('紙カルテIDに数値は書けない',               'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ chartId: 1 }));
 await t('症状が長すぎると書けない',                 'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, item({ sym: 'あ'.repeat(1001) }));
 await t('localIdなしは書けない',                    'deny',  'PUT', 'kyuugo/rooms/0/beds/0', STAFF, { status: 'green' });
 await t('未知の種別（kind）には書けない',           'deny',  'PUT', 'kyuugo/rooms/0/sofas/0', STAFF, item());
@@ -167,6 +171,7 @@ await t('負の値は書けない',                         'deny',  'PUT', 'kyu
 
 console.log('\n── 退室記録 ──');
 await t('スタッフは退室記録を追加できる',           'allow', 'POST', 'kyuugo/discharged', STAFF, rec());
+await t('紙カルテIDが長すぎる退室記録は書けない',   'deny',  'POST', 'kyuugo/discharged', STAFF, rec({ chartId: 'ホ'.repeat(17) }));
 await t('スタッフは既存の退室記録を書き換えられない','deny', 'PUT', 'kyuugo/discharged/existing', STAFF, rec({ name: '改ざん' }));
 await t('スタッフは1項目だけの改ざんもできない',    'deny',  'PUT', 'kyuugo/discharged/existing/name', STAFF, '改ざん');
 await t('管理者は既存の退室記録を修正できる',       'allow', 'PUT', 'kyuugo/discharged/existing', ADMIN, rec({ name: '訂正' }));
@@ -228,7 +233,8 @@ console.log('\n╔══ アプリの各手順が通るか ══╗');
 console.log('\n── 受け入れ（index.html: saveB） ──');
 await step('採番トランザクション（globalPatientId = 1）', 'PUT', 'kyuugo/globalPatientId', STAFF, 1);
 const patient = itemPayload({ localId: 1, patientId: 1, patientCode: '2026-1-001', status: 'yellow',
-  name: '山田太郎', sym: '熱中症の疑い', waiting: false, enteredAt: 1764547200000, age: 42, gender: '男' });
+  chartId: 'ホ001', name: '山田太郎', sym: '熱中症の疑い', waiting: false,
+  enteredAt: 1764547200000, age: 42, gender: '男' });
 await step('枠に患者を登録', 'PUT', 'kyuugo/rooms/0/beds/0', STAFF, patient);
 await step('変更履歴に「登録」を追記', 'POST', 'kyuugo/auditLog', STAFF,
   logChange('登録', '本部 ベッドB1', '中等症 / 1-001 / 山田太郎 / 熱中症の疑い'));
@@ -257,7 +263,7 @@ await step('変更履歴に「枠数変更」を追記', 'POST', 'kyuugo/auditLo
   logChange('枠数変更', '本部 ベッド', '10 → 40'));
 
 console.log('\n── 退室（index.html: checkoutB） ──');
-const record = { patientId: 1, patientCode: '2026-1-001', name: '山田太郎', age: 42, gender: '男',
+const record = { patientId: 1, patientCode: '2026-1-001', chartId: 'ホ001', name: '山田太郎', age: 42, gender: '男',
   sym: '熱中症の疑い', room: 'サーカス', slotId: 'C4', kind: '椅子（室内）', triage: '重症',
   outcome: '救急搬送',
   enteredAt: 1764547200000, exitedAt: 1764554400000, stayMins: 120, recordedAt: Date.now() };
@@ -282,7 +288,7 @@ await step('変更履歴に「一覧に戻す」を追記', 'POST', 'kyuugo/audi
 
 console.log('\n── 入室に戻す（discharged.html: doReenter） ──');
 await step('空き枠へトランザクションで書き戻す', 'PUT', 'kyuugo/rooms/1/beds/2', STAFF,
-  itemPayload({ localId: 3, patientId: 1, patientCode: '2026-1-001', status: 'red',
+  itemPayload({ localId: 3, patientId: 1, patientCode: '2026-1-001', status: 'red', chartId: 'ホ001',
                 name: '山田太郎', sym: '熱中症の疑い', waiting: false, enteredAt: 1764547200000, age: 42, gender: '男' }));
 await step('退室記録をゴミ箱へ（戻し先つき）', 'PUT', 'kyuugo/discharged_trash/rec1', STAFF,
   { ...record, trashedAt: Date.now(), reenteredTo: '空海横 ベッドB3' });

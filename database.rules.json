@@ -85,6 +85,7 @@
               "localId":     { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 40" },
               "patientId":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999" },
               "patientCode": { ".validate": "newData.isString() && newData.val().length <= 32" },
+              "chartId":     { ".validate": "newData.isString() && newData.val().length <= 16" },
               "status":      { ".validate": "newData.isString() && (newData.val() === 'empty' || newData.val() === 'green' || newData.val() === 'yellow' || newData.val() === 'red')" },
               "name":        { ".validate": "newData.isString() && newData.val().length <= 100" },
               "sym":         { ".validate": "newData.isString() && newData.val().length <= 1000" },
@@ -114,6 +115,7 @@
 
           "patientId":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999" },
           "patientCode": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "chartId":     { ".validate": "newData.isString() && newData.val().length <= 16" },
           "name":        { ".validate": "newData.isString() && newData.val().length <= 100" },
           "age":         { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200" },
           "gender":      { ".validate": "newData.isString() && newData.val().length <= 20" },
@@ -140,6 +142,7 @@
 
           "patientId":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999" },
           "patientCode": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "chartId":     { ".validate": "newData.isString() && newData.val().length <= 16" },
           "name":        { ".validate": "newData.isString() && newData.val().length <= 100" },
           "age":         { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200" },
           "gender":      { ".validate": "newData.isString() && newData.val().length <= 20" },

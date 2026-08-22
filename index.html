@@ -73,6 +73,8 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .id-chip{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:500}
 .id-item{background:#f0f0f0;border:1px solid #ccc;color:#555}
 .id-pat{background:#f0fdf4;border:1px solid #86efac;color:#166534}
+/* 紙カルテID。患者IDと見分けがつくように紙色（うすい橙）にする */
+.id-chart{background:#fff7ed;border:1px solid #fdba74;color:#9a3412}
 .wait-chip{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:500;background:#e8d5c4;color:#6b3a2a;border:1px solid #c4a18a}
 .comp-chip{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:500;background:#e4e9f5;color:#3f4d6b;border:1px solid #b9c4de}
 .iname{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
@@ -87,6 +89,7 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .c-id{font-size:9px;font-weight:500;color:#555}
 .c-name{font-size:10px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c-pid{font-size:8px;color:#166534;font-weight:500}
+.c-chart{font-size:8px;color:#9a3412;font-weight:500}
 .c-sym{font-size:8px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .c-wait{font-size:8px;color:#6b3a2a;font-weight:500;margin-top:1px}
 .c-comp{font-size:8px;color:#3f4d6b;font-weight:500;margin-top:1px}
@@ -117,6 +120,9 @@ button.tab-link{font-family:inherit;cursor:pointer}
 .finput:focus{outline:none;border-color:#3b82f6;background:#fff}
 .fidro{background:#f0f0f0;color:#888;cursor:default}
 .id-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* 紙カルテID：記号（部屋で決まる）＋番号。番号側は数字キーボードで打つ */
+.chart-row{display:grid;grid-template-columns:120px 1fr;gap:6px}
+.chart-row select{font-size:12.5px;padding-left:8px;padding-right:4px}
 /* 中身（時刻入力など）が横に広がって列からはみ出さないようにする */
 .id-fields>*{min-width:0}
 /* 使えない文字（漢字）が入っているときの警告（患者名の下） */
@@ -228,7 +234,7 @@ button.tab-link{font-family:inherit;cursor:pointer}
 
 <div class="searchbar">
   <span class="qicon">🔍</span>
-  <input class="qinput" id="q" placeholder="患者ID・氏名・症状で全部屋から探す" oninput="onSearch()" autocomplete="off"
+  <input class="qinput" id="q" placeholder="患者ID・紙カルテ・氏名・症状で全部屋から探す" oninput="onSearch()" autocomplete="off"
          title="氏名はひらがな・カタカナ、全角・半角、姓名の間の空白の違いを無視して探します。症状は打った文字のまま探します">
   <button class="qclear" id="qclear" onclick="clearSearch()" style="display:none" title="検索をやめる" aria-label="検索をやめる">✕</button>
   <button class="qwait" id="qwait" onclick="toggleWait()" title="送迎待ちの患者を全部屋から一覧にする">🚐 送迎待ち <b id="qwait-n">0</b></button>
@@ -274,6 +280,15 @@ button.tab-link{font-family:inherit;cursor:pointer}
           <input class="finput fidro" id="fpid" readonly style="background:#f0fdf4;border-color:#86efac;color:#166534">
           <div class="id-desc">フェス全体での通し番号</div>
         </div>
+      </div>
+      <div>
+        <div class="lbl">紙カルテID</div>
+        <div class="chart-row">
+          <select class="finput" id="fchart-pre"></select>
+          <input class="finput" id="fchart-no" type="text" inputmode="numeric" pattern="[0-9]*"
+                 maxlength="4" placeholder="001" onchange="onChartNoChange()">
+        </div>
+        <div class="id-desc">紙カルテの番号です。数字だけ入れれば3桁にそろえます（1 → 001）。記号は部屋のもの（<span id="chart-hint"></span>）が最初から入っています</div>
       </div>
       <div>
         <div class="lbl">患者名</div>
@@ -368,7 +383,7 @@ import { ref, onValue, set, update, push, runTransaction }
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
          OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName, hasKanji,
-         nameMatches } from './app-common.js?v=1.0.1';
+         nameMatches, ROOM_CHART_PREFIX, makeChartId, splitChartId } from './app-common.js?v=1.1.0';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
@@ -394,7 +409,7 @@ let dischargedToday = [];   // 本日の退室記録（同名チェックに使�
 let curS = 'green';   // モーダルで選ばれているトリアージ。openM のたびに入れ直す
 
 function mkItem(localId) {
-  return {localId, patientId:null, patientCode:null, status:'empty', name:'', sym:'', waiting:false, companion:false, enteredAt:null, age:null, gender:''};
+  return {localId, patientId:null, patientCode:null, chartId:'', status:'empty', name:'', sym:'', waiting:false, companion:false, enteredAt:null, age:null, gender:''};
 }
 function normStatus(s) {
   if (!s) return 'empty';
@@ -449,7 +464,7 @@ function subscribeAll() {
 function itemPayload(item) {
   return {
     localId: item.localId, patientId: item.patientId ?? null, patientCode: item.patientCode ?? null,
-    status: item.status, name: item.name, sym: item.sym,
+    chartId: item.chartId || null, status: item.status, name: item.name, sym: item.sym,
     waiting: !!item.waiting, companion: !!item.companion, enteredAt: item.enteredAt ?? null,
     age: item.age ?? null, gender: item.gender || '',
   };
@@ -697,7 +712,7 @@ function collectSlots(pick) {
 // （氏名はカタカナで保存されるので、これがないと「やまだ」では見つからない）。
 function searchSlots(q) {
   const t = q.toLowerCase();
-  return collectSlots(b => [pidShort(b), b.patientCode, b.name, b.sym, ageGenderText(b)]
+  return collectSlots(b => [pidShort(b), b.patientCode, b.chartId, b.name, b.sym, ageGenderText(b)]
     .filter(Boolean).join(' ').toLowerCase().includes(t)
     || nameMatches(b.name, q));
 }
@@ -794,12 +809,13 @@ function bedHTML(b) {
     tinfo = `<div class="itime"><span>${tsToHHMM(b.enteredAt)}</span><span class="elapsed ${ec}">${m}分</span></div>`;
   }
   const pid  = pidShort(b) ? `<span class="id-chip id-pat">${esc(pidShort(b))}</span>` : '';
+  const chart = b.chartId ? `<span class="id-chip id-chart">${esc(b.chartId)}</span>` : '';
   const wait = b.waiting ? `<span class="wait-chip">送迎待ち</span>` : '';
   const comp = b.companion ? `<span class="comp-chip">付添あり</span>` : '';
   const nameText = b.status==='empty' ? '空き' : (b.name || '氏名未入力');
   const ag = ageGenderText(b);
   return `<div class="item ${b.status}" onclick="openM('bed',${b.localId-1})">
-    <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}${wait}${comp}</div>
+    <div class="id-row"><span class="id-chip id-item">B${b.localId}</span>${pid}${chart}${wait}${comp}</div>
     <div class="iname">${esc(nameText)}</div>
     ${ag ? `<div class="iage">${esc(ag)}</div>` : ''}
     <div class="isym">${esc(b.sym||'')}</div>
@@ -829,6 +845,7 @@ function chairHTML(b, kind) {
     timeRow = `<div class="c-timerow"><span class="c-time">${tsToHHMM(b.enteredAt)}</span><span class="c-elapsed ${ec}">${m}分</span></div>`;
   }
   const pid  = pidShort(b) ? `<span class="c-pid">${esc(pidShort(b))}</span>` : '';
+  const chart = b.chartId ? `<div class="c-chart">${esc(b.chartId)}</div>` : '';
   const sym  = b.sym ? `<div class="c-sym">${esc(b.sym)}</div>` : '';
   const wait = b.waiting ? `<div class="c-wait">送迎待ち</div>` : '';
   const comp = b.companion ? `<div class="c-comp">付添あり</div>` : '';
@@ -838,6 +855,7 @@ function chairHTML(b, kind) {
   return `<div class="chair-item ${b.status}" onclick="openM('${kind}',${b.localId-1})">
     <div class="c-idrow"><span class="c-id">${prefix}${b.localId}</span>${pid}</div>
     <div class="c-name">${esc(nameText)}</div>
+    ${chart}
     ${ag ? `<div class="c-age">${esc(ag)}</div>` : ''}
     ${sym}${wait}${comp}${timeRow}
   </div>`;
@@ -925,6 +943,13 @@ function openM(kind, idx) {
   document.getElementById('id-lbl').textContent = (kind==='bed'?'ベッドID':'椅子ID')+'（部屋内固定）';
   document.getElementById('fid').value = `${prefix}${b.localId}`;
   document.getElementById('fpid').value = pidShort(b) || '（入室時に自動発番）';
+  // 紙カルテIDは記号（部屋で決まる）と番号に分けて出す。
+  // すでに入っている記録はその記号のまま、未記入ならこの部屋の記号を初期値にする
+  const chart = splitChartId(b.chartId);
+  fillChartPrefix(chart.prefix || ROOM_CHART_PREFIX[cur] || '');
+  document.getElementById('fchart-no').value = chart.no;
+  document.getElementById('chart-hint').textContent =
+    `${ROOMS[cur]}＝${ROOM_CHART_PREFIX[cur] || ''}`;
   document.getElementById('fname').value = b.name;
   document.getElementById('fage').value = b.age ?? '';
   document.getElementById('fgender').value = b.gender || '';
@@ -1054,6 +1079,31 @@ function nameField() {
   return v;
 }
 
+// 紙カルテIDの欄（記号＋番号）を読む。番号は3桁にそろえて欄にも書き戻す。
+// 番号が空なら記号だけでは意味がないので空文字（＝未記入）にする
+function chartField() {
+  const pre = document.getElementById('fchart-pre').value;
+  const noEl = document.getElementById('fchart-no');
+  const id = makeChartId(pre, noEl.value);
+  const {no} = splitChartId(id);
+  if (noEl.value !== no) noEl.value = no;
+  return id;
+}
+// 番号の欄から離れたときに0を足してそろえる（入力中は邪魔しない）
+function onChartNoChange() { chartField(); }
+window.onChartNoChange = onChartNoChange;
+
+// 記号の選択肢。部屋の記号が既定だが、別の部屋から移ってきた患者は
+// 紙カルテを持ったまま来るので、他の部屋の記号も選べるようにしておく。
+// 見たことのない記号（古い記録）は消さずに選択肢へ足す
+function fillChartPrefix(prefix) {
+  const opts = ROOMS.map((n, i) => [ROOM_CHART_PREFIX[i], n]);
+  if (prefix && !opts.some(([p]) => p === prefix)) opts.unshift([prefix, 'そのまま']);
+  document.getElementById('fchart-pre').innerHTML =
+    opts.map(([p, n]) => `<option value="${esc(p)}">${esc(p)}（${esc(n)}）</option>`).join('');
+  document.getElementById('fchart-pre').value = prefix;
+}
+
 // 漢字が入っていれば警告を出す。入っていれば true（＝保存できない）
 function renderNameErr() {
   const inp = document.getElementById('fname');
@@ -1077,6 +1127,7 @@ function slotLabel(roomIdx, kind, b) {
 function slotDetail(b, status) {
   const parts = [SL[status] || status];
   if (pidShort(b)) parts.push(pidShort(b));
+  if (b.chartId) parts.push(b.chartId);
   if (b.name) parts.push(b.name);
   if (b.sym) parts.push(b.sym);
   if (b.waiting) parts.push('送迎待ち');
@@ -1162,6 +1213,7 @@ function saveB() {
   }
   b.status  = curS;
   b.name    = name;
+  b.chartId = chartField();
   b.sym     = document.getElementById('fsym').value.trim();
   b.waiting = document.getElementById('fwait').checked;
   b.companion = document.getElementById('fcomp').checked;
@@ -1227,6 +1279,7 @@ function checkoutB() {
   const record = {
     patientId:  b.patientId ?? null,
     patientCode: b.patientCode ?? null,
+    chartId:    chartField() || b.chartId || null,
     name:       nameField() || b.name,
     age:        ageVal !== '' ? Number(ageVal) : (b.age ?? null),
     gender:     document.getElementById('fgender').value || b.gender || null,
@@ -1245,6 +1298,7 @@ function checkoutB() {
 
   const outDetail = [
     pidShort(record) || null,
+    record.chartId || null,
     record.name || null,
     record.triage,
     record.outcome || null,
@@ -1301,6 +1355,8 @@ function moveB() {
   dest.gender   = document.getElementById('fgender').value;
   dest.patientId = b.patientId;
   dest.patientCode = b.patientCode ?? null;
+  // 紙カルテは患者と一緒に動くので、移動先の部屋の記号には付け替えない
+  dest.chartId  = chartField();
   dest.enteredAt = parseTimeToTs(document.getElementById('ftime').value, b.enteredAt) ?? b.enteredAt;
 
   const fromLabel = slotLabel(roomIdx, kind, b);
