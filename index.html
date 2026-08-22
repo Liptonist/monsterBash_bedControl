@@ -214,6 +214,17 @@ button.tab-link{font-family:inherit;cursor:pointer}
 @media (max-width:380px){
   .chair-grid{grid-template-columns:repeat(3,1fr)}
 }
+
+/* ── iPhone で入力欄にふれるとページが拡大されるのを止める ──────────
+   iOS Safari は、文字が16pxより小さい入力欄にふれると勝手に拡大する。
+   拡大されたままになって指で戻す手間がかかるので、指で操作する端末では
+   入力欄の文字を16pxにして拡大が起きないようにする
+   （マウスの端末はこれまでの大きさのまま） */
+@media (pointer: coarse) {
+  .finput, .chart-row select, .qinput { font-size: 16px }
+  /* 文字が大きくなる分、記号の選択肢（サ（サーカス））が入るよう列を広げる */
+  .chart-row { grid-template-columns: 150px 1fr }
+}
 </style>
 </head>
 <body>
@@ -383,7 +394,7 @@ import { ref, onValue, set, update, push, runTransaction }
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
          OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName, hasKanji,
-         nameMatches, ROOM_CHART_PREFIX, makeChartId, splitChartId } from './app-common.js?v=1.1.1';
+         nameMatches, ROOM_CHART_PREFIX, makeChartId, splitChartId } from './app-common.js?v=1.1.2';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 

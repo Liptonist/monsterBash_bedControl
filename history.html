@@ -39,6 +39,15 @@ td{padding:9px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-alig
 .count{font-size:12px;color:#888;margin-bottom:10px}
 .msg{border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px;display:none;word-break:break-all}
 .msg.err{background:#fdecea;border:1px solid #f5c6c2;color:#b3261e;display:block}
+
+/* ── iPhone で入力欄にふれるとページが拡大されるのを止める ──────────
+   iOS Safari は、文字が16pxより小さい入力欄にふれると勝手に拡大する。
+   拡大されたままになって指で戻す手間がかかるので、指で操作する端末では
+   入力欄の文字を16pxにして拡大が起きないようにする
+   （マウスの端末はこれまでの大きさのまま） */
+@media (pointer: coarse) {
+  .filter-select, .filter-inp { font-size: 16px }
+}
 </style>
 </head>
 <body>
@@ -72,7 +81,7 @@ td{padding:9px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-alig
 
 <script type="module">
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { db, requireAuth, NO_NAME } from './app-common.js?v=1.1.1';
+import { db, requireAuth, NO_NAME } from './app-common.js?v=1.1.2';
 
 const $ = id => document.getElementById(id);
 const PAGE = 100;

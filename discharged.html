@@ -125,6 +125,15 @@ tr:hover td{background:#fafafa}
 .msg.ok{background:#e8f5e9;border:1px solid #b7e0ba;color:#256029;display:block}
 .offline-banner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:6px 14px;font-size:12px;color:#92400e;text-align:center}
 .offline-banner.show{display:block}
+
+/* ── iPhone で入力欄にふれるとページが拡大されるのを止める ──────────
+   iOS Safari は、文字が16pxより小さい入力欄にふれると勝手に拡大する。
+   拡大されたままになって指で戻す手間がかかるので、指で操作する端末では
+   入力欄の文字を16pxにして拡大が起きないようにする
+   （マウスの端末はこれまでの大きさのまま） */
+@media (pointer: coarse) {
+  .finput, .filter-select, .filter-input, .fest-form input { font-size: 16px }
+}
 </style>
 </head>
 <body>
@@ -246,7 +255,7 @@ import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, pidShort, ROOMS,
          OUTCOMES, OUTCOME_CLASS, CSV_HEADERS, csvRow, toCSV, downloadCSV,
          safeFileName, nameMatches, sortRecords, nextSort, sortTh,
-         fixName, hasKanji } from './app-common.js?v=1.1.1';
+         fixName, hasKanji } from './app-common.js?v=1.1.2';
 
 // ─── 定数（index.html と揃える） ─────────────────────
 const KIND_PREFIX = {bed:'B', chairIn:'CI', chairOut:'CO'};

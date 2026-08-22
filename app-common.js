@@ -288,6 +288,8 @@ const AUTH_CSS = `
 .auth-div::before,.auth-div::after{content:'';flex:1;height:1px;background:#e5e5e5}
 .auth-inp{width:100%;padding:9px 11px;border:1px solid #d0d0d0;border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:8px}
 .auth-inp:focus{outline:none;border-color:#3b82f6}
+/* iOS Safari の「入力欄にふれると拡大」を止める（各ページのCSSと同じ考え方） */
+@media (pointer: coarse){.auth-inp{font-size:16px}}
 .auth-btn2{width:100%;padding:10px 14px;border:none;border-radius:8px;background:#3b82f6;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
 .auth-btn2:hover{background:#2563eb}
 .auth-btn2:disabled{opacity:.5;cursor:default}
@@ -854,7 +856,7 @@ document.addEventListener('click', e => {
 export const APP_INFO = {
   name:      '救護所 ベッド・椅子コントロール',
   repo:      'monsterBash_bedControl',
-  version:   '1.1.1',
+  version:   '1.1.2',
   copyright: '© 2026 佐藤容平',
   note:      'Monster Bash 救護所のベッド・椅子の使用状況を、複数の端末でリアルタイムに'
            + '共有するためのアプリです。バックエンドは Firebase（認証 + Realtime Database）。',
@@ -862,6 +864,13 @@ export const APP_INFO = {
 
 // 修正履歴。新しいものを先頭に足す。
 export const CHANGELOG = [
+  {version: '1.1.2', date: '2026-08-22', items: [
+    'iPhoneで氏名や紙カルテIDなどの入力欄にふれると、画面が勝手に拡大されるのを直した。'
+      + '拡大されたままになって、指で戻す手間がかかっていました',
+    '指で操作する端末では入力欄の文字を少し大きくしています'
+      + '（iOSは文字の小さい入力欄にふれると自動で拡大する仕様のため）。'
+      + 'パソコンでの見え方は変わりません',
+  ]},
   {version: '1.1.1', date: '2026-08-22', items: [
     '患者IDの付かない退室記録ができてしまうのを直した。「保存する」を押さずに'
       + '空きの枠から「退室する」を押すと、患者IDの無いまま記録されていました'
