@@ -368,7 +368,7 @@ import { ref, onValue, set, update, push, runTransaction }
 import { db, me, requireAuth, logChange, trackWrite,
          festival, subscribeFestival, formatPid, pidText, pidShort, ROOMS,
          OUTCOMES, OUTCOME_DEFAULT, showAbout, sameName, fixName, hasKanji,
-         nameMatches } from './app-common.js?v=1.0.0';
+         nameMatches } from './app-common.js?v=1.0.1';
 
 window.showAbout = showAbout;   // タブ行の「©」ボタンから呼ぶ
 
@@ -413,7 +413,11 @@ function subscribeAll() {
         arr.forEach((item, idx) => {
           if (!item) return;
           if (!localArr[idx]) localArr[idx] = mkItem(idx+1);
-          Object.assign(localArr[idx], item, {
+          // 空にした項目（患者ID・入室時刻・年齢など）は null で書いているが、
+          // Firebase は null の子を持たないので、届く item にはその項目が無い。
+          // 手元の値に item を重ねるだけだと退室で消したはずの患者ID・入室時刻・
+          // 年齢が枠に残ってしまうため、既定値（mkItem）から作り直す
+          Object.assign(localArr[idx], mkItem(idx+1), item, {
             localId: idx+1,
             status: normStatus(item.status),
             waiting: !!item.waiting,
